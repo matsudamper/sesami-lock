@@ -1,0 +1,62 @@
+complexity:
+  CyclomaticComplexMethod:
+    active: false
+  LongMethod:
+    active: false
+  LongParameterList:
+    ignoreDefaultParameters: true
+    ignoreAnnotated:
+      - 'androidx.compose.runtime.Composable'
+      - 'dagger.hilt.android.lifecycle.HiltViewModel'
+  TooManyFunctions:
+    active: false
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated:
+      - 'androidx.compose.runtime.Composable'
+  TopLevelPropertyNaming:
+    constantPattern: '[A-Z][A-Za-z0-9]*'
+
+style:
+  ForbiddenComment:
+    active: false
+  MagicNumber:
+    active: false
+  UseCheckOrError:
+    active: false
+  UnusedPrivateFunction:
+    ignoreAnnotated:
+      - 'androidx.compose.runtime.Preview'
+      - 'androidx.compose.ui.tooling.preview.Preview'
+  UnusedPrivateProperty:
+    ignoreAnnotated:
+      - 'androidx.compose.runtime.Preview'
+      - 'androidx.compose.ui.tooling.preview.Preview'
+  ReturnCount:
+    active: false
+  ThrowsCount:
+    active: false
+  MaxLineLength:
+    active: false
+
+exceptions:
+  TooGenericExceptionCaught:
+    active: false
+  PrintStackTrace:
+    active: false
+
+coroutines:
+  InjectDispatcher:
+    active: false
+
+# Compose specific rules
+# Documentation: https://mrmans0n.github.io/compose-rules/detekt/
+Compose:
+  active: true
+  LambdaParameterInRestartableEffect:
+    active: false
+  ParameterNaming:
+    active: false
+  ViewModelInjection:
+    active: false
