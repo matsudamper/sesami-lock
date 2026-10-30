@@ -1,0 +1,4 @@
+{
+  "name": "sesami-lock",
+  "install": "./.cursor/cloud-agent-install.sh"
+}

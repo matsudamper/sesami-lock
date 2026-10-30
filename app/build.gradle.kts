@@ -11,8 +11,38 @@ android {
         applicationId = "net.matsudamper.sesamilock"
         minSdk = 28
         targetSdk = 36
+        val ciVersion = System.getenv("VERSION")
         versionCode = 1
-        versionName = "1.0"
+        versionName = ciVersion ?: "1.0"
+    }
+
+    signingConfigs {
+        val isCI = System.getenv("CI") != null
+        if (isCI) {
+            create("ci") {
+                val keystoreFile = System.getenv("DEBUG_KEYSTORE_FILE")
+                requireNotNull(keystoreFile) { "DEBUG_KEYSTORE_FILE environment variable is required in CI" }
+                storeFile = rootProject.file(keystoreFile)
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            val isCI = System.getenv("CI") != null
+            if (isCI) {
+                signingConfig = signingConfigs.getByName("ci")
+            }
+        }
+        release {
+            val isCI = System.getenv("CI") != null
+            if (isCI) {
+                signingConfig = signingConfigs.getByName("ci")
+            }
+        }
     }
 
     buildFeatures {
