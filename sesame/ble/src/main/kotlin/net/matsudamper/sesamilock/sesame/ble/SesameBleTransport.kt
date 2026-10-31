@@ -44,7 +44,7 @@ public class SesameBleTransport(
     override val route: LockRoute = LockRoute.BLE
     private val appContext = context.applicationContext
     private val sessions = ConcurrentHashMap<LockId, BleLockSession>()
-    private val unregisteredStores = ConcurrentHashMap<LockId, LockSnapshotStore>()
+    private val stores = ConcurrentHashMap<LockId, LockSnapshotStore>()
 
     init {
         SesameSdkRuntime.ensureInitialized(appContext)
@@ -55,7 +55,7 @@ public class SesameBleTransport(
         val device = CHBleManager.restoreDevice(credential.toChDevice()) ?: return false
         if (device !is CHSesame5 && device !is CHSesame2) return false
         if (device.productModel.deviceModel() != credential.model.deviceModel) return false
-        val session = BleLockSession(lockId, device, clock, config.unlockVerification)
+        val session = BleLockSession(device, store(lockId), clock, config.unlockVerification)
         sessions[lockId] = session
         session.attach()
         return true
@@ -70,13 +70,7 @@ public class SesameBleTransport(
         runCatching { CHBleManager.disableScan {} }
     }
 
-    override fun snapshot(lockId: LockId): StateFlow<LockSnapshot> {
-        val session = sessions[lockId]
-        if (session != null) return session.store.snapshot
-        return unregisteredStores.getOrPut(lockId) {
-            LockSnapshotStore(LockSnapshot.initial(lockId, LockRoute.BLE, pushesUpdatesWhileConnected = true))
-        }.snapshot
-    }
+    override fun snapshot(lockId: LockId): StateFlow<LockSnapshot> = store(lockId).snapshot
 
     override suspend fun ensureConnected(lockId: LockId): ConnectionResult {
         val session = sessions[lockId] ?: return ConnectionResult.Failed(TransportError.DEVICE_NOT_REGISTERED)
@@ -124,6 +118,10 @@ public class SesameBleTransport(
     }
 
     override suspend fun refreshState(lockId: LockId): Unit = Unit
+
+    private fun store(lockId: LockId): LockSnapshotStore = stores.getOrPut(lockId) {
+        LockSnapshotStore(LockSnapshot.initial(lockId, LockRoute.BLE, pushesUpdatesWhileConnected = true))
+    }
 
     private fun connect(device: CHDevices) {
         runCatching { device.connect {} }

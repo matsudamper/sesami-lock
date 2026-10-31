@@ -11,22 +11,18 @@ import co.candyhouse.sesame.ble.os2.sesame2.CHSesame2
 import co.candyhouse.sesame.ble.os3.sesame5.CHSesame5
 import net.matsudamper.sesamilock.sesame.core.model.ConnectionState
 import net.matsudamper.sesamilock.sesame.core.model.LockClock
-import net.matsudamper.sesamilock.sesame.core.model.LockId
-import net.matsudamper.sesamilock.sesame.core.model.LockRoute
-import net.matsudamper.sesamilock.sesame.core.model.LockSnapshot
 import net.matsudamper.sesamilock.sesame.core.model.MechanicalObservation
 import net.matsudamper.sesamilock.sesame.core.transport.LockSnapshotStore
 
 internal class BleLockSession(
-    lockId: LockId,
     val device: CHDevices,
+    val store: LockSnapshotStore,
     private val clock: LockClock,
     private val policy: UnlockVerificationPolicy,
 ) {
-    val store = LockSnapshotStore(LockSnapshot.initial(lockId, LockRoute.BLE, pushesUpdatesWhileConnected = true))
     private val mutableDeviceStatus = MutableStateFlow(device.deviceStatus)
     val deviceStatus: StateFlow<CHDeviceStatus> = mutableDeviceStatus.asStateFlow()
-    private var connectionGeneration = 0L
+    private var connectionGeneration = store.snapshot.value.connectionGeneration
     private var loggedIn = false
     private var mechanicalStatusIsFromCurrentConnection = false
 
