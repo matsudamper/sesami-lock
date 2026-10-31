@@ -369,4 +369,26 @@ class LockCommandCoordinatorTest {
 
         assertIs<CommandOutcome.SentButNotVerified>(fixture.completedOutcome())
     }
+
+    @Test
+    fun settleRestartsWhenStateFlickersDuringSettle() = runTest {
+        val fixture = fixture()
+        fixture.ble.connectNow()
+        fixture.ble.observe(MechanicalState.NOT_LOCKED_OR_MOVING)
+        fixture.ble.onDispatch = { fixture.ble.observe(MechanicalState.LOCKED) }
+
+        fixture.coordinator.requestLock(bleTarget)
+        runCurrent()
+        advanceTimeBy(500)
+        fixture.ble.observe(MechanicalState.NOT_LOCKED_OR_MOVING)
+        advanceTimeBy(900)
+        fixture.ble.observe(MechanicalState.LOCKED)
+        advanceTimeBy(200)
+
+        assertIs<CommandPhase.AwaitingStateVerification>(fixture.coordinator.phase(lockId).value)
+
+        advanceTimeBy(2.seconds)
+
+        assertEquals(CommandOutcome.Verified, fixture.completedOutcome())
+    }
 }

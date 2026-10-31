@@ -274,8 +274,11 @@ public class LockCommandCoordinator(
     private suspend fun awaitSettled(snapshots: StateFlow<LockSnapshot>, matches: (LockSnapshot) -> Boolean, settle: Duration): Boolean {
         while (true) {
             snapshots.first(matches)
-            delay(settle)
-            if (matches(snapshots.value)) return true
+            val leftExpectedStateDuringSettle = withTimeoutOrNull(settle) {
+                snapshots.first { !matches(it) }
+                true
+            } ?: false
+            if (!leftExpectedStateDuringSettle) return true
         }
     }
 
