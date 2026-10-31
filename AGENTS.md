@@ -1,10 +1,19 @@
 # sesami-lock
 
 ## このアプリについて
-Android向けの空のアプリプロジェクトです。
+CANDY HOUSE SESAME スマートロックを、意図しない解錠を防ぐ設計で施錠・解錠する個人利用の Android アプリ。
 
 ## 構成
-- `/app` — Androidアプリ
+- `/app` — Android アプリ（Compose UI、ViewModel、端末認証、依存の組み立て）
+- `/sesame/core` — 経路に依存しないドメインと安全制御（`LockCommandCoordinator`、状態モデル、鍵取り込み、診断）。Kotlin/JVM
+- `/sesame/ble` — 公式 SDK を使った BLE 経路の `LockTransport` 実装
+- `/sesame/cloud` — Web API を使ったクラウド経路の `LockTransport` 実装（AES-CMAC 署名）
+- `/sesame/credential` — Android Keystore で暗号化した鍵情報の保存
+- `/vendor/sesame-sdk` — 公式 SDK のソース固定取り込み。無改変で保ち、lint 対象外
+
+## 安全上の不変条件
+- `toggle()` / `cmd=88` を呼ばない。`NoToggleUsageTest` で検査している
+- 施錠・解錠は必ず `LockCommandCoordinator` を経由する。未送信の解錠を永続化・再送・経路切り替えしない
 
 ## コメント例外
 - コードのコメントは禁止。複雑な関数のドキュメントコメントだけ許可
