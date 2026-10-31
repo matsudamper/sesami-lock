@@ -18,11 +18,16 @@ public interface LockTransport {
 
     /**
      * [intent] をそのまま 1 回だけ機器へ送る。状態による操作の読み替えや再送はしない。
+     * 接続待ちなどを終えて実際に命令を送り出す直前に [sendGate] を呼び、false なら送らずに [DispatchResult.NotSent] を返す。
      * 呼び出し側の coroutine がキャンセルされても、送信済みの命令は取り消されない。
      */
-    public suspend fun dispatchExplicit(lockId: LockId, intent: LockIntent, requestId: RequestId): DispatchResult
+    public suspend fun dispatchExplicit(lockId: LockId, intent: LockIntent, requestId: RequestId, sendGate: SendGate): DispatchResult
 
     public suspend fun refreshState(lockId: LockId)
+}
+
+public fun interface SendGate {
+    public fun tryCommit(): Boolean
 }
 
 public sealed interface ConnectionResult {

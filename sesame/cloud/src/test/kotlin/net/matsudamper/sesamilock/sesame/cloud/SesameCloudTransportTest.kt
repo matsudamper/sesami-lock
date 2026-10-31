@@ -17,6 +17,7 @@ import net.matsudamper.sesamilock.sesame.core.model.MechanicalState
 import net.matsudamper.sesamilock.sesame.core.model.RequestId
 import net.matsudamper.sesamilock.sesame.core.model.SesameModel
 import net.matsudamper.sesamilock.sesame.core.transport.DispatchResult
+import net.matsudamper.sesamilock.sesame.core.transport.SendGate
 import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 
 class SesameCloudTransportTest {
@@ -37,11 +38,14 @@ class SesameCloudTransportTest {
     private class RecordingExecutor(private val result: HttpResult) : HttpExecutor {
         val requests = mutableListOf<HttpRequest>()
 
-        override suspend fun execute(request: HttpRequest): HttpResult {
+        override suspend fun execute(request: HttpRequest, beforeSend: () -> Boolean): HttpResult {
+            if (!beforeSend()) return HttpResult.NotSentByGate
             requests += request
             return result
         }
     }
+
+    private val allowSend = SendGate { true }
 
     private fun transport(executor: HttpExecutor) = SesameCloudTransport(executor, clock, "sesami-lock").also {
         it.register(lockId, credential)
@@ -52,8 +56,8 @@ class SesameCloudTransportTest {
         val executor = RecordingExecutor(HttpResult.Response(200, ""))
         val transport = transport(executor)
 
-        transport.dispatchExplicit(lockId, LockIntent.LOCK, RequestId("1"))
-        transport.dispatchExplicit(lockId, LockIntent.UNLOCK, RequestId("2"))
+        transport.dispatchExplicit(lockId, LockIntent.LOCK, RequestId("1"), allowSend)
+        transport.dispatchExplicit(lockId, LockIntent.UNLOCK, RequestId("2"), allowSend)
 
         val codes = executor.requests.map { Json.parseToJsonElement(requireNotNull(it.body)).jsonObject.getValue("cmd").jsonPrimitive.int }
         assertEquals(listOf(82, 83), codes)
@@ -63,7 +67,7 @@ class SesameCloudTransportTest {
     @Test
     fun requestGoesOnlyToOfficialHostOverHttps() = runTest {
         val executor = RecordingExecutor(HttpResult.Response(200, ""))
-        transport(executor).dispatchExplicit(lockId, LockIntent.LOCK, RequestId("1"))
+        transport(executor).dispatchExplicit(lockId, LockIntent.LOCK, RequestId("1"), allowSend)
 
         val url = executor.requests.single().url
         assertEquals("https", url.protocol)
@@ -76,7 +80,7 @@ class SesameCloudTransportTest {
     fun serverErrorIsReportedAsUnknownWithoutRetry() = runTest {
         val executor = RecordingExecutor(HttpResult.Response(503, ""))
 
-        val result = transport(executor).dispatchExplicit(lockId, LockIntent.UNLOCK, RequestId("1"))
+        val result = transport(executor).dispatchExplicit(lockId, LockIntent.UNLOCK, RequestId("1"), allowSend)
 
         assertEquals(DispatchResult.OutcomeUnknown(TransportError.HTTP_SERVER_ERROR), result)
         assertEquals(1, executor.requests.size)
@@ -86,7 +90,7 @@ class SesameCloudTransportTest {
     fun timeoutIsReportedAsUnknownWithoutRetry() = runTest {
         val executor = RecordingExecutor(HttpResult.TimedOut)
 
-        val result = transport(executor).dispatchExplicit(lockId, LockIntent.UNLOCK, RequestId("1"))
+        val result = transport(executor).dispatchExplicit(lockId, LockIntent.UNLOCK, RequestId("1"), allowSend)
 
         assertIs<DispatchResult.OutcomeUnknown>(result)
         assertEquals(1, executor.requests.size)
@@ -103,8 +107,18 @@ class SesameCloudTransportTest {
     @Test
     fun requestToStringDoesNotLeakApiKey() = runTest {
         val executor = RecordingExecutor(HttpResult.Response(200, ""))
-        transport(executor).dispatchExplicit(lockId, LockIntent.LOCK, RequestId("1"))
+        transport(executor).dispatchExplicit(lockId, LockIntent.LOCK, RequestId("1"), allowSend)
 
         assertFalse(executor.requests.single().toString().contains("api-key"))
+    }
+
+    @Test
+    fun refusedGateSendsNothing() = runTest {
+        val executor = RecordingExecutor(HttpResult.Response(200, ""))
+
+        val result = transport(executor).dispatchExplicit(lockId, LockIntent.UNLOCK, RequestId("1"), SendGate { false })
+
+        assertIs<DispatchResult.NotSent>(result)
+        assertEquals(0, executor.requests.size)
     }
 }

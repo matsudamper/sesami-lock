@@ -34,6 +34,7 @@ import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.DispatchResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockSnapshotStore
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
+import net.matsudamper.sesamilock.sesame.core.transport.SendGate
 import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 
 public class SesameBleTransport(
@@ -94,12 +95,13 @@ public class SesameBleTransport(
         return session.isLoggedIn && session.device.deviceStatus.value == CHDeviceLoginStatus.logined
     }
 
-    override suspend fun dispatchExplicit(lockId: LockId, intent: LockIntent, requestId: RequestId): DispatchResult {
+    override suspend fun dispatchExplicit(lockId: LockId, intent: LockIntent, requestId: RequestId, sendGate: SendGate): DispatchResult {
         val session = sessions[lockId] ?: return DispatchResult.NotSent(TransportError.DEVICE_NOT_REGISTERED)
         val device = session.device
         if (device.deviceStatus.value != CHDeviceLoginStatus.logined) return DispatchResult.NotSent(TransportError.NOT_CONNECTED)
         val command = ExplicitLockCommand.from(device, intent) ?: return DispatchResult.NotSent(TransportError.UNSUPPORTED_DEVICE)
         val historyTag = config.historyTag.toByteArray(Charsets.UTF_8)
+        if (!sendGate.tryCommit()) return DispatchResult.NotSent(TransportError.NOT_CONNECTED)
 
         val acknowledged = withTimeoutOrNull(config.acknowledgementTimeout) {
             suspendCancellableCoroutine { continuation ->

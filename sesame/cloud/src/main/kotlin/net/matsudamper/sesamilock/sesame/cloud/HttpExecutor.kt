@@ -25,20 +25,25 @@ internal sealed interface HttpResult {
 
     data object NotConnected : HttpResult
 
+    data object NotSentByGate : HttpResult
+
     data object TimedOut : HttpResult
 
     data object Interrupted : HttpResult
 }
 
 internal fun interface HttpExecutor {
-    suspend fun execute(request: HttpRequest): HttpResult
+    /**
+     * 接続を確立した後、リクエスト本文を送る直前に [beforeSend] を呼ぶ。false なら何も送らずに [HttpResult.NotSentByGate] を返す。
+     */
+    suspend fun execute(request: HttpRequest, beforeSend: () -> Boolean): HttpResult
 }
 
 internal class UrlConnectionHttpExecutor(
     private val connectTimeout: Duration,
     private val readTimeout: Duration,
 ) : HttpExecutor {
-    override suspend fun execute(request: HttpRequest): HttpResult = runInterruptible(Dispatchers.IO) {
+    override suspend fun execute(request: HttpRequest, beforeSend: () -> Boolean): HttpResult = runInterruptible(Dispatchers.IO) {
         val connection = request.url.openConnection() as? HttpsURLConnection ?: return@runInterruptible HttpResult.NotConnected
         try {
             connection.requestMethod = request.method
@@ -54,7 +59,10 @@ internal class UrlConnectionHttpExecutor(
                 return@runInterruptible HttpResult.NotConnected
             } catch (_: UnknownHostException) {
                 return@runInterruptible HttpResult.NotConnected
+            } catch (_: SocketTimeoutException) {
+                return@runInterruptible HttpResult.NotConnected
             }
+            if (!beforeSend()) return@runInterruptible HttpResult.NotSentByGate
             if (request.body != null) {
                 connection.outputStream.use { it.write(request.body.toByteArray(Charsets.UTF_8)) }
             }

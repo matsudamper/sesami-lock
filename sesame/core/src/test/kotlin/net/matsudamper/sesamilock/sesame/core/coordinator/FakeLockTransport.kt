@@ -15,6 +15,8 @@ import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.DispatchResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockSnapshotStore
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
+import net.matsudamper.sesamilock.sesame.core.transport.SendGate
+import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 
 internal class FakeLockTransport(
     override val route: LockRoute,
@@ -28,6 +30,7 @@ internal class FakeLockTransport(
     var dispatchResult: DispatchResult = DispatchResult.Accepted
     var authenticated = true
     var onDispatch: (LockIntent) -> Unit = {}
+    var beforeCommit: () -> Unit = {}
     var refreshCount = 0
     private var generation = 0L
 
@@ -61,7 +64,9 @@ internal class FakeLockTransport(
 
     override fun isAuthenticated(lockId: LockId): Boolean = authenticated
 
-    override suspend fun dispatchExplicit(lockId: LockId, intent: LockIntent, requestId: RequestId): DispatchResult {
+    override suspend fun dispatchExplicit(lockId: LockId, intent: LockIntent, requestId: RequestId, sendGate: SendGate): DispatchResult {
+        beforeCommit()
+        if (!sendGate.tryCommit()) return DispatchResult.NotSent(TransportError.NOT_CONNECTED)
         dispatched += intent
         onDispatch(intent)
         return dispatchResult

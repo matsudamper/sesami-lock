@@ -391,4 +391,18 @@ class LockCommandCoordinatorTest {
 
         assertEquals(CommandOutcome.Verified, fixture.completedOutcome())
     }
+
+    @Test
+    fun unlockIsNotSentWhenAppLeavesForegroundWhileTransportPrepares() = runTest {
+        val fixture = fixture()
+        fixture.ble.beforeCommit = { fixture.foreground.value = false }
+        val requestId = fixture.startedUnlock()
+        fixture.coordinator.confirmUnlock(requestId)
+        fixture.coordinator.onAuthenticationSucceeded(requestId)
+
+        advanceTimeBy(30.seconds)
+
+        assertEquals(listOf(), fixture.ble.dispatched)
+        assertEquals(CommandOutcome.NotSent(AbortReason.APP_NOT_IN_FOREGROUND, TransportError.NOT_CONNECTED), fixture.completedOutcome())
+    }
 }

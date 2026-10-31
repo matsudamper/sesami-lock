@@ -27,6 +27,7 @@ import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.DispatchResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockSnapshotStore
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
+import net.matsudamper.sesamilock.sesame.core.transport.SendGate
 import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 
 public class SesameCloudTransport internal constructor(
@@ -63,7 +64,7 @@ public class SesameCloudTransport internal constructor(
 
     override fun isAuthenticated(lockId: LockId): Boolean = credentials.containsKey(lockId)
 
-    override suspend fun dispatchExplicit(lockId: LockId, intent: LockIntent, requestId: RequestId): DispatchResult {
+    override suspend fun dispatchExplicit(lockId: LockId, intent: LockIntent, requestId: RequestId, sendGate: SendGate): DispatchResult {
         val credential = credentials[lockId] ?: return DispatchResult.NotSent(TransportError.DEVICE_NOT_REGISTERED)
         val url = deviceUrl(credential, "/cmd") ?: return DispatchResult.NotSent(TransportError.DEVICE_NOT_REGISTERED)
         val command = SesameCloudCommand.from(intent)
@@ -79,8 +80,10 @@ public class SesameCloudTransport internal constructor(
             headers = mapOf("x-api-key" to credential.apiKey, "Content-Type" to "application/json"),
             body = body,
         )
-        return when (val result = http.execute(request)) {
+        return when (val result = http.execute(request, sendGate::tryCommit)) {
             HttpResult.NotConnected -> DispatchResult.NotSent(TransportError.NETWORK)
+
+            HttpResult.NotSentByGate -> DispatchResult.NotSent(TransportError.NOT_CONNECTED)
 
             HttpResult.TimedOut -> DispatchResult.OutcomeUnknown(TransportError.TIMEOUT)
 
@@ -103,7 +106,7 @@ public class SesameCloudTransport internal constructor(
             headers = mapOf("x-api-key" to credential.apiKey),
             body = null,
         )
-        val response = http.execute(request) as? HttpResult.Response ?: return
+        val response = http.execute(request, beforeSend = { true }) as? HttpResult.Response ?: return
         if (response.statusCode !in 200..299) return
         val state = parseMechanicalState(response.body) ?: return
         store(lockId).offerObservation(

@@ -27,6 +27,7 @@ import net.matsudamper.sesamilock.sesame.core.model.RequestId
 import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.DispatchResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
+import net.matsudamper.sesamilock.sesame.core.transport.SendGate
 import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 
 public class LockCommandCoordinator(
@@ -173,27 +174,38 @@ public class LockCommandCoordinator(
         }
         diagnostics.mark(request.requestId, DiagnosticPoint.CONNECTION_AUTHENTICATED)
 
-        val violation = synchronized(guard) {
-            findGuardViolation(request, connection, transport).also { violation ->
-                if (violation == null) {
-                    request.sent = true
-                    request.stage = RequestStage.SENT
-                    phaseFlow(lockId).value = CommandPhase.Sending(request.requestId, request.intent)
-                }
-            }
-        }
+        val violation = synchronized(guard) { findGuardViolation(request, connection, transport) }
         if (violation != null) {
             abortIfNotSent(request, violation, null)
             return
         }
+        updatePhaseIfActive(request, CommandPhase.Sending(request.requestId, request.intent))
 
         withContext(NonCancellable) {
+            var gateRefusal: AbortReason? = null
+            val sendGate = SendGate {
+                synchronized(guard) {
+                    val lastMomentViolation = findGuardViolation(request, connection, transport)
+                    if (lastMomentViolation == null) {
+                        request.sent = true
+                        request.stage = RequestStage.SENT
+                    } else {
+                        gateRefusal = lastMomentViolation
+                    }
+                    lastMomentViolation == null
+                }
+            }
             val sentAtElapsedMillis = clock.elapsedRealtimeMillis()
             diagnostics.mark(request.requestId, DiagnosticPoint.REQUEST_SENT)
-            val dispatchResult = transport.dispatchExplicit(lockId, request.intent, request.requestId)
+            val dispatchResult = transport.dispatchExplicit(lockId, request.intent, request.requestId, sendGate)
             diagnostics.mark(request.requestId, DiagnosticPoint.ACK)
             diagnostics.recordDispatch(request.requestId, dispatchResult.toString())
 
+            val committed = synchronized(guard) { request.sent }
+            if (!committed) {
+                abortIfNotSent(request, gateRefusal ?: AbortReason.TRANSPORT_NOT_AUTHENTICATED, (dispatchResult as? DispatchResult.NotSent)?.error)
+                return@withContext
+            }
             if (dispatchResult is DispatchResult.NotSent) {
                 finish(request, CommandOutcome.NotSent(AbortReason.TRANSPORT_NOT_AUTHENTICATED, dispatchResult.error))
                 return@withContext
