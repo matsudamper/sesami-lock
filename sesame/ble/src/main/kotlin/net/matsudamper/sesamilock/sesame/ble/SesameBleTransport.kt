@@ -101,7 +101,7 @@ public class SesameBleTransport(
         val command = ExplicitLockCommand.from(device, intent) ?: return DispatchResult.NotSent(TransportError.UNSUPPORTED_DEVICE)
         val historyTag = config.historyTag.toByteArray(Charsets.UTF_8)
 
-        return withTimeoutOrNull(config.acknowledgementTimeout) {
+        val acknowledged = withTimeoutOrNull(config.acknowledgementTimeout) {
             suspendCancellableCoroutine { continuation ->
                 val returnedFromSdk = AtomicBoolean(false)
                 val callback: CHResult<CHEmpty> = { result ->
@@ -115,10 +115,23 @@ public class SesameBleTransport(
                 command.send(historyTag, callback)
                 returnedFromSdk.set(true)
             }
-        } ?: DispatchResult.OutcomeUnknown(TransportError.TIMEOUT)
+        }
+        if (acknowledged == null && intent == LockIntent.UNLOCK) {
+            discardPendingSdkCommands(session)
+        }
+        return acknowledged ?: DispatchResult.OutcomeUnknown(TransportError.TIMEOUT)
     }
 
     override suspend fun refreshState(lockId: LockId): Unit = Unit
+
+    /**
+     * SDK は先行コマンドの送信や応答を待つ間、後続のコマンドを内部キューに保持する。
+     * 応答待ちのまま時間切れになった解錠が、期限後や背面移行後に送られないよう GATT 接続ごと切断する。
+     * OS2 は再ログインで内部キューが作り直されるため、切断前に積まれたコマンドは再接続後も送られない。
+     */
+    private fun discardPendingSdkCommands(session: BleLockSession) {
+        runCatching { session.device.disconnect {} }
+    }
 
     private fun store(lockId: LockId): LockSnapshotStore = stores.getOrPut(lockId) {
         LockSnapshotStore(LockSnapshot.initial(lockId, LockRoute.BLE, pushesUpdatesWhileConnected = true))
