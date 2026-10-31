@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "sesami-lock"
 include(":app")
+include(":vendor:sesame-sdk")
