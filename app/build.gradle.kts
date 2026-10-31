@@ -51,6 +51,15 @@ android {
 }
 
 dependencies {
+    implementation(project(":sesame:core"))
+    implementation(project(":sesame:ble"))
+    implementation(project(":sesame:cloud"))
+    implementation(project(":sesame:credential"))
     implementation(libs.androidxActivityCompose)
     implementation(libs.androidxComposeMaterial3)
+    implementation(libs.androidxLifecycleViewmodelCompose)
+    implementation(libs.androidxLifecycleRuntimeCompose)
+    implementation(libs.androidxFragment)
+    implementation(libs.androidxBiometric)
+    implementation(libs.kotlinxCoroutinesAndroid)
 }
