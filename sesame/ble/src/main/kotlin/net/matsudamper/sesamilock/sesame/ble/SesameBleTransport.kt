@@ -172,8 +172,12 @@ public class SesameBleTransport(
     )
 
     public companion object {
+        /**
+         * Android 12 では FINE だけを要求すると要求自体が無視される端末があるため、COARSE も同時に要求する。
+         */
         public fun requiredRuntimePermissions(): List<String> = buildList {
             add(Manifest.permission.ACCESS_FINE_LOCATION)
+            add(Manifest.permission.ACCESS_COARSE_LOCATION)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 add(Manifest.permission.BLUETOOTH_SCAN)
                 add(Manifest.permission.BLUETOOTH_CONNECT)
