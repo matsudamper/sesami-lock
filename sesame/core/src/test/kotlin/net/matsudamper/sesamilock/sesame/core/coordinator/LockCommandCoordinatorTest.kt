@@ -405,4 +405,36 @@ class LockCommandCoordinatorTest {
         assertEquals(listOf(), fixture.ble.dispatched)
         assertEquals(CommandOutcome.NotSent(AbortReason.APP_NOT_IN_FOREGROUND, TransportError.NOT_CONNECTED), fixture.completedOutcome())
     }
+
+    @Test
+    fun polledRouteIsVerifiedOnlyByNewerStateVersion() = runTest {
+        val fixture = fixture()
+        val cloudTarget = LockTarget(lockId, LockRoute.CLOUD)
+        fixture.cloud.onDispatch = {
+            fixture.cloud.connectNow()
+            fixture.cloud.observe(MechanicalState.LOCKED)
+        }
+
+        fixture.coordinator.requestLock(cloudTarget)
+        runCurrent()
+        advanceTimeBy(1)
+        fixture.cloud.observe(MechanicalState.LOCKED)
+        advanceTimeBy(5.seconds)
+
+        assertEquals(CommandOutcome.Verified, fixture.completedOutcome())
+    }
+
+    @Test
+    fun polledRouteIgnoresSameStateVersionFetchedAfterSend() = runTest {
+        val fixture = fixture()
+        val cloudTarget = LockTarget(lockId, LockRoute.CLOUD)
+
+        fixture.coordinator.requestLock(cloudTarget)
+        runCurrent()
+        advanceTimeBy(1)
+        fixture.cloud.observe(MechanicalState.LOCKED)
+        advanceTimeBy(20.seconds)
+
+        assertIs<CommandOutcome.SentButNotVerified>(fixture.completedOutcome())
+    }
 }

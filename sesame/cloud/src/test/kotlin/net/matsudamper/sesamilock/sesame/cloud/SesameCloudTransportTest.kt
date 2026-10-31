@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.int
@@ -16,6 +17,7 @@ import net.matsudamper.sesamilock.sesame.core.model.LockIntent
 import net.matsudamper.sesamilock.sesame.core.model.MechanicalState
 import net.matsudamper.sesamilock.sesame.core.model.RequestId
 import net.matsudamper.sesamilock.sesame.core.model.SesameModel
+import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.DispatchResult
 import net.matsudamper.sesamilock.sesame.core.transport.SendGate
 import net.matsudamper.sesamilock.sesame.core.transport.TransportError
@@ -98,10 +100,10 @@ class SesameCloudTransportTest {
 
     @Test
     fun cloudUnlockedIsNeverVerifiedUnlock() {
-        assertEquals(MechanicalState.NOT_LOCKED_OR_MOVING, SesameCloudTransport.parseMechanicalState("""{"CHSesame2Status":"unlocked"}"""))
-        assertEquals(MechanicalState.NOT_LOCKED_OR_MOVING, SesameCloudTransport.parseMechanicalState("""{"CHSesame2Status":"moved"}"""))
-        assertEquals(MechanicalState.LOCKED, SesameCloudTransport.parseMechanicalState("""{"CHSesame2Status":"locked","timestamp":1598523693}"""))
-        assertEquals(null, SesameCloudTransport.parseMechanicalState("""{"CHSesame2Status":"toggle"}"""))
+        assertEquals(MechanicalState.NOT_LOCKED_OR_MOVING, SesameCloudTransport.parseShadow("""{"CHSesame2Status":"unlocked"}""")?.state)
+        assertEquals(MechanicalState.NOT_LOCKED_OR_MOVING, SesameCloudTransport.parseShadow("""{"CHSesame2Status":"moved"}""")?.state)
+        assertEquals(MechanicalState.LOCKED, SesameCloudTransport.parseShadow("""{"CHSesame2Status":"locked","timestamp":1598523693}""")?.state)
+        assertEquals(null, SesameCloudTransport.parseShadow("""{"CHSesame2Status":"toggle"}""")?.state)
     }
 
     @Test
@@ -120,5 +122,43 @@ class SesameCloudTransportTest {
 
         assertIs<DispatchResult.NotSent>(result)
         assertEquals(0, executor.requests.size)
+    }
+
+    private class ScriptedExecutor(private val bodies: MutableList<String>) : HttpExecutor {
+        override suspend fun execute(request: HttpRequest, beforeSend: () -> Boolean): HttpResult {
+            if (!beforeSend()) return HttpResult.NotSentByGate
+            return HttpResult.Response(200, if (request.method == "GET") bodies.removeAt(0) else "")
+        }
+    }
+
+    @Test
+    fun unchangedShadowDoesNotAdvanceGeneration() = runTest {
+        val transport = transport(
+            ScriptedExecutor(
+                mutableListOf(
+                    """{"CHSesame2Status":"locked","timestamp":100}""",
+                    """{"CHSesame2Status":"locked","timestamp":100}""",
+                    """{"CHSesame2Status":"locked","timestamp":101}""",
+                ),
+            ),
+        )
+
+        val ready = assertIs<ConnectionResult.Ready>(transport.ensureConnected(lockId))
+        transport.refreshState(lockId)
+        val afterUnchanged = requireNotNull(transport.snapshot(lockId).value.observation).connectionGeneration
+        transport.refreshState(lockId)
+        val afterChanged = requireNotNull(transport.snapshot(lockId).value.observation).connectionGeneration
+
+        assertEquals(ready.connectionGeneration, afterUnchanged)
+        assertTrue(afterChanged > ready.connectionGeneration)
+    }
+
+    @Test
+    fun shadowWithoutTimestampCannotBeUsedForVerification() = runTest {
+        val transport = transport(ScriptedExecutor(mutableListOf("""{"CHSesame2Status":"locked"}""")))
+
+        val ready = assertIs<ConnectionResult.Ready>(transport.ensureConnected(lockId))
+
+        assertEquals(Long.MAX_VALUE, ready.connectionGeneration)
     }
 }

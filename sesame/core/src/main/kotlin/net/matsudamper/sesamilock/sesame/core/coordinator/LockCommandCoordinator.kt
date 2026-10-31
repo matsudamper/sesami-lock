@@ -241,7 +241,7 @@ public class LockCommandCoordinator(
 
     /**
      * 送信後に、目標の機械状態が [LockSafetyConfig.verificationSettleDuration] の間保たれることを確認する。
-     * 通知型の経路では送信前からの同じ接続の観測も使うが、ポーリング型の経路では送信後に取得した観測だけを使う。
+     * 通知型の経路では送信前からの同じ接続の観測も使うが、ポーリング型の経路では送信後に取得し、かつ接続時より新しい世代（状態の版）の観測だけを使う。
      */
     private suspend fun awaitVerification(
         transport: LockTransport,
@@ -305,8 +305,11 @@ public class LockCommandCoordinator(
         if (observation.state != expectedState) return false
         if (observation.connectionGeneration < sentConnectionGeneration) return false
         val observedAfterSend = observation.observedAtElapsedMillis > sentAtElapsedMillis
-        val liveOnCurrentConnection = snapshot.pushesUpdatesWhileConnected && observation.connectionGeneration == snapshot.connectionGeneration
-        return observedAfterSend || liveOnCurrentConnection
+        return if (snapshot.pushesUpdatesWhileConnected) {
+            observedAfterSend || observation.connectionGeneration == snapshot.connectionGeneration
+        } else {
+            observedAfterSend && observation.connectionGeneration > sentConnectionGeneration
+        }
     }
 
     private fun abortIfNotSent(request: ActiveRequest, reason: AbortReason, error: TransportError?): Boolean {
