@@ -67,9 +67,12 @@ internal fun HoldToActivateButton(
                         progress.snapTo(0f)
                         progress.animateTo(1f, tween(durationMillis = holdMillis, easing = LinearEasing))
                     }
-                    val released = withTimeoutOrNull(holdMillis.toLong()) { waitForUpOrCancellation() }
+                    val gestureEndedBeforeHold = withTimeoutOrNull(holdMillis.toLong()) {
+                        waitForUpOrCancellation()
+                        true
+                    } ?: false
                     animation.cancel()
-                    if (released == null) {
+                    if (!gestureEndedBeforeHold) {
                         currentOnActivate.value()
                         waitForUpOrCancellation()
                     }
