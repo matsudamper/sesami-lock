@@ -118,7 +118,7 @@ public class SesameBleTransport(
                 returnedFromSdk.set(true)
             }
         }
-        if (acknowledged == null && intent == LockIntent.UNLOCK) {
+        if (acknowledged == null) {
             discardPendingSdkCommands(session)
         }
         return acknowledged ?: DispatchResult.OutcomeUnknown(TransportError.TIMEOUT)
@@ -130,6 +130,7 @@ public class SesameBleTransport(
      * SDK は先行コマンドの送信や応答を待つ間、後続のコマンドを内部キューに保持する。
      * 応答待ちのまま時間切れになった解錠が、期限後や背面移行後に送られないよう GATT 接続ごと切断する。
      * OS2 は再ログインで内部キューが作り直されるため、切断前に積まれたコマンドは再接続後も送られない。
+     * OS3 は同じ種類の応答待ちが残ると次の同種コマンドを送らずに捨てるため、施錠の時間切れでも切断して残留状態を消す。
      */
     private fun discardPendingSdkCommands(session: BleLockSession) {
         runCatching { session.device.disconnect {} }
