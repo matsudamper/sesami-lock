@@ -47,7 +47,7 @@ public class SesameBleTransport(
     private val stores = ConcurrentHashMap<LockId, LockSnapshotStore>()
 
     init {
-        SesameSdkRuntime.ensureInitialized(appContext)
+        SesameSdkRuntime.ensureHostInitialized()
     }
 
     public fun register(lockId: LockId, credential: LockCredential.Ble): Boolean {
@@ -76,6 +76,7 @@ public class SesameBleTransport(
         val session = sessions[lockId] ?: return ConnectionResult.Failed(TransportError.DEVICE_NOT_REGISTERED)
         if (!hasRequiredPermissions()) return ConnectionResult.Failed(TransportError.PERMISSION_DENIED)
         if (!isBluetoothEnabled()) return ConnectionResult.Failed(TransportError.BLUETOOTH_OFF)
+        SesameSdkRuntime.ensureBluetoothInitialized(appContext)
         if (!enableScan()) return ConnectionResult.Failed(TransportError.UNKNOWN)
 
         val status = session.deviceStatus

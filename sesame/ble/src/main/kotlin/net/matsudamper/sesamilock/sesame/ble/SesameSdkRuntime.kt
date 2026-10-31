@@ -11,14 +11,26 @@ import co.candyhouse.sesame.utils.CHResult
 import co.candyhouse.sesame.utils.HttpResponseCallback
 
 internal object SesameSdkRuntime {
-    private var initialized = false
+    private var hostInitialized = false
+    private var bluetoothInitialized = false
 
-    fun ensureInitialized(context: Context) {
+    fun ensureHostInitialized() {
         synchronized(this) {
-            if (initialized) return
+            if (hostInitialized) return
             CHBleSupport.initialize(OfflineBleHost, NonPersistentKeys, "")
+            hostInitialized = true
+        }
+    }
+
+    /**
+     * SDK の CHBleManager は初期化時に Bluetooth アダプタへ触れるため、実行時権限を得た後に呼ぶ。
+     */
+    fun ensureBluetoothInitialized(context: Context) {
+        synchronized(this) {
+            ensureHostInitialized()
+            if (bluetoothInitialized) return
             CHBleManager(context.applicationContext)
-            initialized = true
+            bluetoothInitialized = true
         }
     }
 
