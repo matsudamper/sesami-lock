@@ -251,7 +251,7 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
                     containerColor = unlockedColor,
                     contentColor = Color.White,
                     minHeight = actionButtonHeight,
-                    onActivate = { card.listener.onUnlockLongPress() },
+                    onActivate = card.listener::onUnlockLongPress,
                     modifier = Modifier.weight(1f),
                 )
             }

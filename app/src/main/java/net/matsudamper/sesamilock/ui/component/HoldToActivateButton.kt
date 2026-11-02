@@ -15,7 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,10 +46,9 @@ internal fun HoldToActivateButton(
     val progress = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
-    val currentOnActivate = rememberUpdatedState(onActivate)
     val activate = {
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        currentOnActivate.value()
+        onActivate()
     }
     val background = if (enabled) containerColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
     val foreground = if (enabled) contentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
@@ -74,7 +72,7 @@ internal fun HoldToActivateButton(
                     }
                 }
             }
-            .pointerInput(enabled, holdMillis) {
+            .pointerInput(enabled, holdMillis, onActivate) {
                 if (!enabled) return@pointerInput
                 awaitEachGesture {
                     awaitFirstDown()

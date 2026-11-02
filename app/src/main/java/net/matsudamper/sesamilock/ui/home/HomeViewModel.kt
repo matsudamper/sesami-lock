@@ -2,6 +2,7 @@ package net.matsudamper.sesamilock.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -51,6 +52,7 @@ internal class HomeViewModel(
     )
 
     private var snackbarCache: Pair<String, HomeUiState.Snackbar>? = null
+    private val cardListeners = ConcurrentHashMap<LockId, Pair<RegisteredLock, HomeUiState.LockCardListener>>()
 
     private val ticker: Flow<Long> = flow {
         while (true) {
@@ -161,8 +163,14 @@ internal class HomeViewModel(
             registrationErrorVisible = registrationRejected,
             lockButtonEnabled = operable,
             unlockButtonEnabled = operable,
-            listener = createCardListener(lock),
+            listener = cardListener(lock),
         )
+    }
+
+    private fun cardListener(lock: RegisteredLock): HomeUiState.LockCardListener {
+        val cached = cardListeners[lock.id]
+        if (cached != null && cached.first === lock) return cached.second
+        return createCardListener(lock).also { cardListeners[lock.id] = lock to it }
     }
 
     private fun createCardListener(lock: RegisteredLock): HomeUiState.LockCardListener = object : HomeUiState.LockCardListener {
