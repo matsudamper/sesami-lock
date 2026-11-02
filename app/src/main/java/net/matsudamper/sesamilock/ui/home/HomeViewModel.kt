@@ -49,6 +49,7 @@ internal class HomeViewModel(
             pendingDeleteLockId = null,
             blePermissionsGranted = blePermissions.isGranted(),
             messages = mapOf(),
+            refreshingLockIds = setOf(),
         ),
     )
 
@@ -133,7 +134,7 @@ internal class HomeViewModel(
                 is LocksModel.Loaded -> if (models.isEmpty()) {
                     HomeUiState.Content.Empty
                 } else {
-                    HomeUiState.Content.Locks(models.map { createCard(it, now, it.lock.id in rejectedLockIds) })
+                    HomeUiState.Content.Locks(models.map { createCard(it, now, it.lock.id in rejectedLockIds, it.lock.id in view.refreshingLockIds) })
                 }
             },
             permissionBanner = if (needsBlePermission) {
@@ -147,7 +148,7 @@ internal class HomeViewModel(
         )
     }
 
-    private fun createCard(model: LockModel, now: Long, registrationRejected: Boolean): HomeUiState.LockCard {
+    private fun createCard(model: LockModel, now: Long, registrationRejected: Boolean, refreshing: Boolean): HomeUiState.LockCard {
         val lock = model.lock
         val displayState = model.snapshot.toDisplayState(now, STATE_FRESHNESS)
         val observation = model.snapshot.observation
@@ -179,7 +180,7 @@ internal class HomeViewModel(
                 HomeUiState.StatusIcon.DISCONNECTED,
                 -> HomeUiState.Tone.NEUTRAL
             },
-            progressVisible = inProgress != null,
+            progressVisible = inProgress != null || refreshing,
             warningMessage = when {
                 registrationRejected -> "この鍵を読み込めませんでした。登録し直してください"
                 observation?.batteryCritical == true -> "電池残量が少なくなっています"
@@ -277,19 +278,28 @@ internal class HomeViewModel(
 
     private fun refresh(lock: RegisteredLock) {
         viewModelScope.launch {
-            val transport = transport(lock)
-            when (lock.route) {
-                LockRoute.BLE -> {
-                    val result = withTimeoutOrNull(OBSERVATION_CONNECT_TIMEOUT) { transport.ensureConnected(lock.id) }
-                    when (result) {
-                        null -> showMessage(lock.id, "SESAME が見つかりませんでした。近くで操作してください")
-                        is ConnectionResult.Failed -> showMessage(lock.id, LockTexts.error(result.error))
-                        is ConnectionResult.Ready -> clearMessage(lock.id)
-                    }
-                }
-
-                LockRoute.CLOUD -> transport.refreshState(lock.id)
+            viewState.update { it.copy(refreshingLockIds = it.refreshingLockIds + lock.id) }
+            try {
+                observe(lock)
+            } finally {
+                viewState.update { it.copy(refreshingLockIds = it.refreshingLockIds - lock.id) }
             }
+        }
+    }
+
+    private suspend fun observe(lock: RegisteredLock) {
+        val transport = transport(lock)
+        when (lock.route) {
+            LockRoute.BLE -> {
+                val result = withTimeoutOrNull(OBSERVATION_CONNECT_TIMEOUT) { transport.ensureConnected(lock.id) }
+                when (result) {
+                    null -> showMessage(lock.id, "SESAME が見つかりませんでした。近くで操作してください")
+                    is ConnectionResult.Failed -> showMessage(lock.id, LockTexts.error(result.error))
+                    is ConnectionResult.Ready -> clearMessage(lock.id)
+                }
+            }
+
+            LockRoute.CLOUD -> transport.refreshState(lock.id)
         }
     }
 
@@ -307,6 +317,7 @@ internal class HomeViewModel(
         val pendingDeleteLockId: LockId?,
         val blePermissionsGranted: Boolean,
         val messages: Map<LockId, String>,
+        val refreshingLockIds: Set<LockId>,
     )
 
     private data class LockModel(
