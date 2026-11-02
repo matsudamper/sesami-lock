@@ -1,6 +1,6 @@
 # sesame-sdk (vendored)
 
-CANDY HOUSE 公式 Android SDK の `sesameSdk` モジュールを、再現性のためにソース固定で取り込んだもの。
+CANDY HOUSE 公式 Android SDK の `sesameSdk` モジュールのカスタマイズ。  
 
 - 取り込み元: https://github.com/CANDY-HOUSE/SesameSDK_Android_with_DemoApp
 - 固定コミット: `9b1e8a882030a4df76e0b260ff4bafa0580f8cd9`
