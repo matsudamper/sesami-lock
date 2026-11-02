@@ -94,11 +94,13 @@ internal class AddLockViewModel(
     private fun buildUiState(form: Form): AddLockUiState = AddLockUiState(
         name = form.name,
         bleRouteSelected = form.route == LockRoute.BLE,
+        cloudRouteSelected = form.route == LockRoute.CLOUD,
         bleInput = if (form.route == LockRoute.BLE) {
             AddLockUiState.BleInput(
                 keyText = form.keyText,
                 keyError = form.error?.messageFor(FormField.KEY),
                 qrReadingProgressVisible = form.qrReading,
+                qrPickButtonEnabled = !form.qrReading,
             )
         } else {
             null

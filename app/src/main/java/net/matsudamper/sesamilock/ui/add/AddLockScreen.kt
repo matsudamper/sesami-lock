@@ -96,7 +96,7 @@ internal fun AddLockScreen(
                         label = { Text("Bluetooth") },
                     )
                     FilterChip(
-                        selected = !uiState.bleRouteSelected,
+                        selected = uiState.cloudRouteSelected,
                         onClick = { uiState.listener.onCloudRouteClick() },
                         label = { Text("クラウド") },
                     )
@@ -164,7 +164,7 @@ private fun BleInputContent(input: AddLockUiState.BleInput, listener: AddLockUiS
         )
         OutlinedButton(
             onClick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-            enabled = !input.qrReadingProgressVisible,
+            enabled = input.qrPickButtonEnabled,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
