@@ -7,12 +7,18 @@ import org.jlleitschuh.gradle.ktlint.KtlintPlugin
 
 plugins {
     alias(libs.plugins.androidApplication) apply false
+    alias(libs.plugins.androidLibrary) apply false
+    alias(libs.plugins.kotlinJvm) apply false
+    alias(libs.plugins.kotlinSerialization) apply false
     alias(libs.plugins.kotlinCompose) apply false
     alias(libs.plugins.ktlint) apply false
     alias(libs.plugins.detekt) apply false
 }
 
+val vendoredProjectPaths = setOf(":vendor", ":vendor:sesame-sdk")
+
 subprojects {
+    if (path in vendoredProjectPaths) return@subprojects
     pluginManager.apply(DetektPlugin::class.java)
     pluginManager.apply(KtlintPlugin::class.java)
 
