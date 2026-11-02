@@ -34,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -125,6 +126,7 @@ internal fun HomeScreen(
     }
 
     uiState.deleteConfirmation?.let { DeleteConfirmationDialog(it) }
+    uiState.renameDialog?.let { RenameDialog(it) }
 }
 
 @Composable
@@ -260,6 +262,7 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
                 }
                 LockCardMenu(
                     onRefreshClick = { card.listener.onRefreshClick() },
+                    onRenameClick = { card.listener.onRenameClick() },
                     onDeleteClick = { card.listener.onDeleteClick() },
                 )
             }
@@ -344,7 +347,7 @@ private fun StatusBadge(icon: HomeUiState.StatusIcon, tone: HomeUiState.Tone, pr
 }
 
 @Composable
-private fun LockCardMenu(onRefreshClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun LockCardMenu(onRefreshClick: () -> Unit, onRenameClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         IconButton(onClick = { expanded = true }) {
@@ -360,6 +363,13 @@ private fun LockCardMenu(onRefreshClick: () -> Unit, onDeleteClick: () -> Unit, 
                 },
             )
             DropdownMenuItem(
+                text = { Text("名前を変更") },
+                onClick = {
+                    expanded = false
+                    onRenameClick()
+                },
+            )
+            DropdownMenuItem(
                 text = { Text("この鍵を削除") },
                 onClick = {
                     expanded = false
@@ -368,6 +378,29 @@ private fun LockCardMenu(onRefreshClick: () -> Unit, onDeleteClick: () -> Unit, 
             )
         }
     }
+}
+
+@Composable
+private fun RenameDialog(dialog: HomeUiState.RenameDialog) {
+    AlertDialog(
+        onDismissRequest = { dialog.listener.onCancel() },
+        title = { Text("名前を変更") },
+        text = {
+            OutlinedTextField(
+                value = dialog.name,
+                onValueChange = { dialog.listener.onNameChange(it) },
+                label = { Text("表示名") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { dialog.listener.onConfirmClick() }, enabled = dialog.confirmButtonEnabled) { Text("変更") }
+        },
+        dismissButton = {
+            TextButton(onClick = { dialog.listener.onCancel() }) { Text("キャンセル") }
+        },
+    )
 }
 
 @Composable

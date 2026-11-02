@@ -59,6 +59,17 @@ public class EncryptedLockRepository(context: Context) {
         }
     }
 
+    public suspend fun rename(lockId: LockId, displayName: String) {
+        mutex.withLock {
+            val current = (mutableState.value as? LockRepositoryState.Loaded)?.locks ?: return@withLock
+            val updated = current.map { lock ->
+                if (lock.id == lockId) RegisteredLock(id = lock.id, displayName = displayName, credential = lock.credential) else lock
+            }
+            withContext(Dispatchers.IO) { write(updated) }
+            mutableState.value = LockRepositoryState.Loaded(updated)
+        }
+    }
+
     public suspend fun deleteAll() {
         mutex.withLock {
             withContext(Dispatchers.IO) {
