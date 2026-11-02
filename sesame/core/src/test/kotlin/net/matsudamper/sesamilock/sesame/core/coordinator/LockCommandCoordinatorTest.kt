@@ -64,7 +64,7 @@ class LockCommandCoordinatorTest {
     }
 
     private fun Fixture.startedUnlock(): RequestId {
-        val result = coordinator.beginUnlock(bleTarget)
+        val result = coordinator.requestUnlock(bleTarget)
         return assertIs<StartResult.Started>(result).requestId
     }
 
@@ -108,49 +108,11 @@ class LockCommandCoordinatorTest {
     }
 
     @Test
-    fun cancelledUnlockConfirmationSendsNothing() = runTest {
-        val fixture = fixture()
-        val requestId = fixture.startedUnlock()
-
-        assertTrue(fixture.coordinator.cancel(requestId))
-        advanceTimeBy(70.seconds)
-
-        assertEquals(listOf(), fixture.ble.dispatched)
-        assertEquals(CommandOutcome.NotSent(AbortReason.CANCELLED, null), fixture.completedOutcome())
-    }
-
-    @Test
-    fun failedAuthenticationSendsNothing() = runTest {
-        val fixture = fixture()
-        val requestId = fixture.startedUnlock()
-        fixture.coordinator.confirmUnlock(requestId)
-
-        fixture.coordinator.onAuthenticationFailed(requestId)
-        assertFalse(fixture.coordinator.onAuthenticationSucceeded(requestId))
-        advanceTimeBy(30.seconds)
-
-        assertEquals(listOf(), fixture.ble.dispatched)
-    }
-
-    @Test
-    fun authenticationWithoutConfirmationIsIgnored() = runTest {
-        val fixture = fixture()
-        val requestId = fixture.startedUnlock()
-
-        assertFalse(fixture.coordinator.onAuthenticationSucceeded(requestId))
-        advanceTimeBy(30.seconds)
-
-        assertEquals(listOf(), fixture.ble.dispatched)
-    }
-
-    @Test
     fun unlockIsNotSentWhenConnectionIsReadyAfterDeadline() = runTest {
         val fixture = fixture()
         val gate = CompletableDeferred<ConnectionResult>()
         fixture.ble.connectionGate = gate
-        val requestId = fixture.startedUnlock()
-        fixture.coordinator.confirmUnlock(requestId)
-        fixture.coordinator.onAuthenticationSucceeded(requestId)
+        fixture.startedUnlock()
 
         advanceTimeBy(11.seconds)
         gate.complete(fixture.ble.connectNow())
@@ -163,15 +125,11 @@ class LockCommandCoordinatorTest {
     @Test
     fun repeatedUnlockRequestsSendAtMostOnce() = runTest {
         val fixture = fixture()
-        val requestId = fixture.startedUnlock()
+        fixture.startedUnlock()
         repeat(9) {
-            assertEquals(StartResult.Rejected(RejectReason.OPERATION_IN_PROGRESS), fixture.coordinator.beginUnlock(bleTarget))
+            assertEquals(StartResult.Rejected(RejectReason.OPERATION_IN_PROGRESS), fixture.coordinator.requestUnlock(bleTarget))
         }
 
-        fixture.coordinator.confirmUnlock(requestId)
-        assertTrue(fixture.coordinator.onAuthenticationSucceeded(requestId))
-        assertFalse(fixture.coordinator.onAuthenticationSucceeded(requestId))
-        assertFalse(fixture.coordinator.confirmUnlock(requestId))
         advanceTimeBy(30.seconds)
 
         assertEquals(listOf(LockIntent.UNLOCK), fixture.ble.dispatched)
@@ -180,10 +138,12 @@ class LockCommandCoordinatorTest {
     @Test
     fun lockIsRejectedWhileUnlockIsPending() = runTest {
         val fixture = fixture()
+        fixture.ble.connectionGate = CompletableDeferred()
         fixture.startedUnlock()
+        runCurrent()
 
         assertEquals(StartResult.Rejected(RejectReason.OPERATION_IN_PROGRESS), fixture.coordinator.requestLock(bleTarget))
-        advanceTimeBy(5.seconds)
+        advanceTimeBy(30.seconds)
 
         assertEquals(listOf(), fixture.ble.dispatched)
     }
@@ -192,9 +152,7 @@ class LockCommandCoordinatorTest {
     fun lostAcknowledgementIsNotRetried() = runTest {
         val fixture = fixture()
         fixture.ble.dispatchResult = DispatchResult.OutcomeUnknown(TransportError.TIMEOUT)
-        val requestId = fixture.startedUnlock()
-        fixture.coordinator.confirmUnlock(requestId)
-        fixture.coordinator.onAuthenticationSucceeded(requestId)
+        fixture.startedUnlock()
 
         advanceTimeBy(60.seconds)
 
@@ -224,8 +182,6 @@ class LockCommandCoordinatorTest {
     fun cancelAfterSendIsRefused() = runTest {
         val fixture = fixture()
         val requestId = fixture.startedUnlock()
-        fixture.coordinator.confirmUnlock(requestId)
-        fixture.coordinator.onAuthenticationSucceeded(requestId)
         runCurrent()
 
         assertFalse(fixture.coordinator.cancel(requestId))
@@ -236,9 +192,7 @@ class LockCommandCoordinatorTest {
     fun notLockedOrMovingIsNotTreatedAsVerifiedUnlock() = runTest {
         val fixture = fixture()
         fixture.ble.onDispatch = { fixture.ble.observe(MechanicalState.NOT_LOCKED_OR_MOVING) }
-        val requestId = fixture.startedUnlock()
-        fixture.coordinator.confirmUnlock(requestId)
-        fixture.coordinator.onAuthenticationSucceeded(requestId)
+        fixture.startedUnlock()
 
         advanceTimeBy(30.seconds)
 
@@ -249,9 +203,7 @@ class LockCommandCoordinatorTest {
     fun verifiedUnlockRequiresStrictObservation() = runTest {
         val fixture = fixture()
         fixture.ble.onDispatch = { fixture.ble.observe(MechanicalState.UNLOCKED_VERIFIED) }
-        val requestId = fixture.startedUnlock()
-        fixture.coordinator.confirmUnlock(requestId)
-        fixture.coordinator.onAuthenticationSucceeded(requestId)
+        fixture.startedUnlock()
 
         advanceTimeBy(5.seconds)
 
@@ -262,9 +214,7 @@ class LockCommandCoordinatorTest {
     fun bleFailureDoesNotFallBackToCloud() = runTest {
         val fixture = fixture()
         fixture.ble.connectionGate = CompletableDeferred(ConnectionResult.Failed(TransportError.BLUETOOTH_OFF))
-        val requestId = fixture.startedUnlock()
-        fixture.coordinator.confirmUnlock(requestId)
-        fixture.coordinator.onAuthenticationSucceeded(requestId)
+        fixture.startedUnlock()
 
         advanceTimeBy(30.seconds)
 
@@ -288,9 +238,7 @@ class LockCommandCoordinatorTest {
     fun unlockIsNotSentInBackground() = runTest {
         val fixture = fixture()
         fixture.foreground.value = false
-        val requestId = fixture.startedUnlock()
-        fixture.coordinator.confirmUnlock(requestId)
-        fixture.coordinator.onAuthenticationSucceeded(requestId)
+        fixture.startedUnlock()
 
         advanceTimeBy(30.seconds)
 
@@ -302,24 +250,10 @@ class LockCommandCoordinatorTest {
     fun unlockIsNotSentWhenTransportLostAuthentication() = runTest {
         val fixture = fixture()
         fixture.ble.authenticated = false
-        val requestId = fixture.startedUnlock()
-        fixture.coordinator.confirmUnlock(requestId)
-        fixture.coordinator.onAuthenticationSucceeded(requestId)
+        fixture.startedUnlock()
 
         advanceTimeBy(30.seconds)
 
-        assertEquals(listOf(), fixture.ble.dispatched)
-    }
-
-    @Test
-    fun unconfirmedUnlockExpires() = runTest {
-        val fixture = fixture()
-        val requestId = fixture.startedUnlock()
-
-        advanceTimeBy(61.seconds)
-
-        assertFalse(fixture.coordinator.confirmUnlock(requestId))
-        assertEquals(CommandOutcome.NotSent(AbortReason.CONFIRMATION_EXPIRED, null), fixture.completedOutcome())
         assertEquals(listOf(), fixture.ble.dispatched)
     }
 
@@ -396,9 +330,7 @@ class LockCommandCoordinatorTest {
     fun unlockIsNotSentWhenAppLeavesForegroundWhileTransportPrepares() = runTest {
         val fixture = fixture()
         fixture.ble.beforeCommit = { fixture.foreground.value = false }
-        val requestId = fixture.startedUnlock()
-        fixture.coordinator.confirmUnlock(requestId)
-        fixture.coordinator.onAuthenticationSucceeded(requestId)
+        fixture.startedUnlock()
 
         advanceTimeBy(30.seconds)
 
@@ -436,5 +368,21 @@ class LockCommandCoordinatorTest {
         advanceTimeBy(20.seconds)
 
         assertIs<CommandOutcome.SentButNotVerified>(fixture.completedOutcome())
+    }
+
+    @Test
+    fun cancelledUnlockBeforeSendSendsNothing() = runTest {
+        val fixture = fixture()
+        val gate = CompletableDeferred<ConnectionResult>()
+        fixture.ble.connectionGate = gate
+        val requestId = fixture.startedUnlock()
+        runCurrent()
+
+        assertTrue(fixture.coordinator.cancel(requestId))
+        gate.complete(fixture.ble.connectNow())
+        advanceTimeBy(30.seconds)
+
+        assertEquals(listOf(), fixture.ble.dispatched)
+        assertEquals(CommandOutcome.NotSent(AbortReason.CANCELLED, null), fixture.completedOutcome())
     }
 }

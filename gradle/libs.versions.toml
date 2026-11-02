@@ -10,8 +10,6 @@ detektCompose = "0.6.8"
 kotlinxCoroutines = "1.11.0"
 kotlinxSerialization = "1.12.0"
 lifecycle = "2.11.0"
-biometric = "1.1.0"
-fragment = "1.9.1"
 androidxAnnotation = "1.11.0"
 gson = "2.15.0"
 
@@ -21,8 +19,6 @@ androidxComposeMaterial3 = { group = "androidx.compose.material3", name = "mater
 androidxLifecycleViewmodelCompose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 androidxLifecycleRuntimeCompose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidxLifecycleLivedataCore = { group = "androidx.lifecycle", name = "lifecycle-livedata-core", version.ref = "lifecycle" }
-androidxFragment = { group = "androidx.fragment", name = "fragment", version.ref = "fragment" }
-androidxBiometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 androidxAnnotation = { group = "androidx.annotation", name = "annotation", version.ref = "androidxAnnotation" }
 kotlinxCoroutinesCore = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinxCoroutinesAndroid = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }

@@ -47,10 +47,6 @@ internal object LockTexts {
     }
 
     fun inProgress(phase: CommandPhase.InProgress): String = when (phase) {
-        is CommandPhase.AwaitingConfirmation -> "解錠の確認待ち"
-
-        is CommandPhase.AwaitingAuthentication -> "端末認証待ち"
-
         is CommandPhase.Connecting -> "${intent(phase.intent)}: 接続中"
 
         is CommandPhase.Sending -> "${intent(phase.intent)}: 送信中"
@@ -120,14 +116,10 @@ internal object LockTexts {
 
     private fun abort(reason: AbortReason, error: TransportError?): String = when (reason) {
         AbortReason.CANCELLED -> "キャンセルしました"
-        AbortReason.CONFIRMATION_EXPIRED -> "確認の期限が切れました"
-        AbortReason.AUTHENTICATION_FAILED -> "端末認証が完了しませんでした"
         AbortReason.SEND_DEADLINE_EXPIRED -> "期限内に接続できませんでした。もう一度操作してください"
         AbortReason.CONNECTION_FAILED -> "接続できませんでした（${error?.let(::error) ?: "不明"}）"
         AbortReason.APP_NOT_IN_FOREGROUND -> "アプリが前面にありませんでした"
         AbortReason.DEVICE_MISMATCH -> "接続先の機器が一致しませんでした"
         AbortReason.TRANSPORT_NOT_AUTHENTICATED -> "機器との認証が切れていました"
-        AbortReason.NOT_CONFIRMED -> "確認が完了していませんでした"
-        AbortReason.NOT_AUTHENTICATED -> "端末認証が完了していませんでした"
     }
 }

@@ -24,12 +24,10 @@ import net.matsudamper.sesamilock.sesame.core.coordinator.LockCommandCoordinator
 import net.matsudamper.sesamilock.sesame.core.coordinator.LockTarget
 import net.matsudamper.sesamilock.sesame.core.coordinator.StartResult
 import net.matsudamper.sesamilock.sesame.core.model.LockClock
-import net.matsudamper.sesamilock.sesame.core.model.LockDisplayState
 import net.matsudamper.sesamilock.sesame.core.model.LockId
 import net.matsudamper.sesamilock.sesame.core.model.LockRoute
 import net.matsudamper.sesamilock.sesame.core.model.LockSnapshot
 import net.matsudamper.sesamilock.sesame.core.model.RegisteredLock
-import net.matsudamper.sesamilock.sesame.core.model.RequestId
 import net.matsudamper.sesamilock.sesame.core.model.toDisplayState
 import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
@@ -51,7 +49,6 @@ internal class HomeViewModel(
             messages = mapOf(),
         ),
     )
-    private var authenticationPromptCache: Pair<RequestId, HomeUiState.AuthenticationPrompt>? = null
 
     private val ticker: Flow<Long> = flow {
         while (true) {
@@ -129,8 +126,6 @@ internal class HomeViewModel(
             } else {
                 null
             },
-            unlockConfirmation = models.firstNotNullOfOrNull { createUnlockConfirmation(it, now) },
-            authenticationPrompt = models.firstNotNullOfOrNull { createAuthenticationPrompt(it) },
             deleteConfirmation = view.pendingDeleteLockId?.let { id -> models.firstOrNull { it.lock.id == id } }?.let(::createDeleteConfirmation),
             listener = listener,
         )
@@ -174,7 +169,7 @@ internal class HomeViewModel(
 
         override fun onUnlockLongPress() {
             clearMessage(lock.id)
-            val result = coordinator.beginUnlock(LockTarget(lock.id, lock.route))
+            val result = coordinator.requestUnlock(LockTarget(lock.id, lock.route))
             if (result is StartResult.Rejected) showMessage(lock.id, LockTexts.rejected(result.reason))
         }
 
@@ -190,53 +185,6 @@ internal class HomeViewModel(
         override fun onDeleteClick() {
             viewState.update { it.copy(pendingDeleteLockId = lock.id) }
         }
-    }
-
-    private fun createUnlockConfirmation(model: LockModel, now: Long): HomeUiState.UnlockConfirmation? {
-        val phase = model.phase as? CommandPhase.AwaitingConfirmation ?: return null
-        val displayState = model.snapshot.toDisplayState(now, STATE_FRESHNESS)
-        val observedLabel = buildString {
-            append(LockTexts.displayState(displayState, model.snapshot.observation?.state))
-            model.snapshot.observation?.let { append("（${LockTexts.time(it.observedAtWallMillis)}）") }
-        }
-        return HomeUiState.UnlockConfirmation(
-            lockName = model.lock.displayName,
-            routeLabel = LockTexts.route(model.lock.route),
-            observedStateLabel = observedLabel,
-            stateUnknownWarningVisible = displayState !in knownDisplayStates,
-            listener = object : HomeUiState.UnlockConfirmationListener {
-                override fun onConfirmClick() {
-                    coordinator.confirmUnlock(phase.requestId)
-                }
-
-                override fun onCancel() {
-                    coordinator.cancel(phase.requestId)
-                    coordinator.dismissCompleted(model.lock.id)
-                }
-            },
-        )
-    }
-
-    private fun createAuthenticationPrompt(model: LockModel): HomeUiState.AuthenticationPrompt? {
-        val phase = model.phase as? CommandPhase.AwaitingAuthentication ?: return null
-        authenticationPromptCache?.let { (requestId, prompt) -> if (requestId == phase.requestId) return prompt }
-        val prompt = HomeUiState.AuthenticationPrompt(
-            title = "「${model.lock.displayName}」を解錠",
-            subtitle = "解錠のために端末認証をしてください",
-            listener = object : HomeUiState.AuthenticationPromptListener {
-                override fun onSucceeded() {
-                    coordinator.onAuthenticationSucceeded(phase.requestId)
-                }
-
-                override fun onFailed(message: String) {
-                    if (coordinator.onAuthenticationFailed(phase.requestId)) {
-                        showMessage(model.lock.id, "解錠は送信していません: $message")
-                    }
-                }
-            },
-        )
-        authenticationPromptCache = phase.requestId to prompt
-        return prompt
     }
 
     private fun createDeleteConfirmation(model: LockModel): HomeUiState.DeleteConfirmation = HomeUiState.DeleteConfirmation(
@@ -309,10 +257,5 @@ internal class HomeViewModel(
     private companion object {
         private val STATE_FRESHNESS = 5.seconds
         private val OBSERVATION_CONNECT_TIMEOUT = 15.seconds
-        private val knownDisplayStates = setOf(
-            LockDisplayState.LOCKED_VERIFIED,
-            LockDisplayState.UNLOCKED_VERIFIED,
-            LockDisplayState.NOT_LOCKED_OR_MOVING,
-        )
     }
 }

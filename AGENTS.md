@@ -4,7 +4,7 @@
 CANDY HOUSE SESAME スマートロックを、意図しない解錠を防ぐ設計で施錠・解錠する個人利用の Android アプリ。
 
 ## 構成
-- `/app` — Android アプリ（Compose UI、ViewModel、端末認証、依存の組み立て）
+- `/app` — Android アプリ（Compose UI、ViewModel、依存の組み立て）
 - `/sesame/core` — 経路に依存しないドメインと安全制御（`LockCommandCoordinator`、状態モデル、鍵取り込み、診断）。Kotlin/JVM
 - `/sesame/ble` — 公式 SDK を使った BLE 経路の `LockTransport` 実装
 - `/sesame/cloud` — Web API を使ったクラウド経路の `LockTransport` 実装（AES-CMAC 署名）

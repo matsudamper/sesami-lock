@@ -6,8 +6,6 @@ import androidx.compose.runtime.Immutable
 internal data class HomeUiState(
     val content: Content,
     val permissionBanner: PermissionBanner?,
-    val unlockConfirmation: UnlockConfirmation?,
-    val authenticationPrompt: AuthenticationPrompt?,
     val deleteConfirmation: DeleteConfirmation?,
     val listener: Listener,
 ) {
@@ -54,22 +52,6 @@ internal data class HomeUiState(
     )
 
     @Immutable
-    data class UnlockConfirmation(
-        val lockName: String,
-        val routeLabel: String,
-        val observedStateLabel: String,
-        val stateUnknownWarningVisible: Boolean,
-        val listener: UnlockConfirmationListener,
-    )
-
-    @Immutable
-    data class AuthenticationPrompt(
-        val title: String,
-        val subtitle: String,
-        val listener: AuthenticationPromptListener,
-    )
-
-    @Immutable
     data class DeleteConfirmation(
         val lockName: String,
         val listener: DeleteConfirmationListener,
@@ -97,18 +79,6 @@ internal data class HomeUiState(
 
     interface PermissionListener {
         fun onPermissionResult()
-    }
-
-    interface UnlockConfirmationListener {
-        fun onConfirmClick()
-
-        fun onCancel()
-    }
-
-    interface AuthenticationPromptListener {
-        fun onSucceeded()
-
-        fun onFailed(message: String)
     }
 
     interface DeleteConfirmationListener {

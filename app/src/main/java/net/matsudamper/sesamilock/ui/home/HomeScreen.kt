@@ -1,6 +1,5 @@
 package net.matsudamper.sesamilock.ui.home
 
-import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -33,10 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.LifecycleResumeEffect
-import net.matsudamper.sesamilock.security.UnlockAuthenticationListener
-import net.matsudamper.sesamilock.security.UnlockAuthenticator
 import net.matsudamper.sesamilock.ui.component.HoldToActivateButton
 
 private const val UnlockHoldMillis = 600
@@ -55,7 +51,6 @@ internal fun HomeScreen(
         uiState.listener.onResume()
         onPauseOrDispose { }
     }
-    AuthenticationPromptEffect(uiState.authenticationPrompt)
 
     Surface(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.safeDrawingPadding()) {
@@ -96,34 +91,7 @@ internal fun HomeScreen(
         }
     }
 
-    uiState.unlockConfirmation?.let { UnlockConfirmationDialog(it) }
     uiState.deleteConfirmation?.let { DeleteConfirmationDialog(it) }
-}
-
-@Composable
-private fun AuthenticationPromptEffect(prompt: HomeUiState.AuthenticationPrompt?) {
-    val activity = LocalActivity.current as? FragmentActivity
-    LaunchedEffect(prompt) {
-        if (prompt == null) return@LaunchedEffect
-        if (activity == null) {
-            prompt.listener.onFailed("端末認証を開始できません")
-            return@LaunchedEffect
-        }
-        UnlockAuthenticator.authenticate(
-            activity = activity,
-            title = prompt.title,
-            subtitle = prompt.subtitle,
-            listener = object : UnlockAuthenticationListener {
-                override fun onAuthenticationSucceeded() {
-                    prompt.listener.onSucceeded()
-                }
-
-                override fun onAuthenticationFailed(message: String) {
-                    prompt.listener.onFailed(message)
-                }
-            },
-        )
-    }
 }
 
 @Composable
@@ -207,35 +175,6 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
             )
         }
     }
-}
-
-@Composable
-private fun UnlockConfirmationDialog(confirmation: HomeUiState.UnlockConfirmation) {
-    AlertDialog(
-        onDismissRequest = { confirmation.listener.onCancel() },
-        title = { Text("「${confirmation.lockName}」を解錠しますか？") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("通信経路: ${confirmation.routeLabel}")
-                Text("現在の観測: ${confirmation.observedStateLabel}")
-                if (confirmation.stateUnknownWarningVisible) {
-                    Text("現在の状態が確認できていません。それでも解錠するか確認してください。", color = warningColor)
-                }
-                Text("次に端末認証を行います。送信後は取り消せません。")
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { confirmation.listener.onConfirmClick() },
-                colors = ButtonDefaults.buttonColors(containerColor = unlockedColor),
-            ) {
-                Text("解錠する")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = { confirmation.listener.onCancel() }) { Text("キャンセル") }
-        },
-    )
 }
 
 @Composable

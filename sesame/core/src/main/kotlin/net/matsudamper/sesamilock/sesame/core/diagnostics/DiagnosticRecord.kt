@@ -6,8 +6,6 @@ import net.matsudamper.sesamilock.sesame.core.model.RequestId
 
 public enum class DiagnosticPoint(public val key: String) {
     TAP("tap_at"),
-    CONFIRMED("confirmed_at"),
-    AUTH_SUCCEEDED("auth_succeeded_at"),
     CONNECT_STARTED("connect_started_at"),
     CONNECTION_AUTHENTICATED("authenticated_at"),
     REQUEST_SENT("request_sent_at"),

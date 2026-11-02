@@ -46,64 +46,9 @@ public class LockCommandCoordinator(
 
     public fun phase(lockId: LockId): StateFlow<CommandPhase> = synchronized(guard) { phaseFlow(lockId).asStateFlow() }
 
-    public fun requestLock(target: LockTarget): StartResult {
-        val request = when (val result = startRequest(target, LockIntent.LOCK)) {
-            is RequestStart.Rejected -> return StartResult.Rejected(result.reason)
-            is RequestStart.Started -> result.request
-        }
-        request.job = scope.launch { execute(request) }
-        return StartResult.Started(request.requestId)
-    }
+    public fun requestLock(target: LockTarget): StartResult = request(target, LockIntent.LOCK)
 
-    public fun beginUnlock(target: LockTarget): StartResult {
-        val request = when (val result = startRequest(target, LockIntent.UNLOCK)) {
-            is RequestStart.Rejected -> return StartResult.Rejected(result.reason)
-            is RequestStart.Started -> result.request
-        }
-        scope.launch {
-            delay(config.unlockConfirmationTimeout)
-            val stillWaitingForUser = synchronized(guard) {
-                request.stage == RequestStage.AWAITING_CONFIRMATION || request.stage == RequestStage.AWAITING_AUTHENTICATION
-            }
-            if (stillWaitingForUser) {
-                abortIfNotSent(request, AbortReason.CONFIRMATION_EXPIRED, null)
-            }
-        }
-        return StartResult.Started(request.requestId)
-    }
-
-    public fun confirmUnlock(requestId: RequestId): Boolean {
-        val confirmed = synchronized(guard) {
-            val request = findActive(requestId) ?: return@synchronized false
-            if (request.stage != RequestStage.AWAITING_CONFIRMATION) return@synchronized false
-            request.stage = RequestStage.AWAITING_AUTHENTICATION
-            request.confirmedAtElapsedMillis = clock.elapsedRealtimeMillis()
-            phaseFlow(request.target.lockId).value = CommandPhase.AwaitingAuthentication(requestId)
-            true
-        }
-        if (confirmed) diagnostics.mark(requestId, DiagnosticPoint.CONFIRMED)
-        return confirmed
-    }
-
-    public fun onAuthenticationSucceeded(requestId: RequestId): Boolean {
-        val request = synchronized(guard) {
-            val request = findActive(requestId) ?: return@synchronized null
-            if (request.stage != RequestStage.AWAITING_AUTHENTICATION) return@synchronized null
-            val now = clock.elapsedRealtimeMillis()
-            if (now - request.createdAtElapsedMillis > config.unlockConfirmationTimeout.inWholeMilliseconds) return@synchronized null
-            request.stage = RequestStage.EXECUTING
-            request.authenticatedAtElapsedMillis = now
-            request
-        } ?: return false
-        diagnostics.mark(requestId, DiagnosticPoint.AUTH_SUCCEEDED)
-        request.job = scope.launch { execute(request) }
-        return true
-    }
-
-    public fun onAuthenticationFailed(requestId: RequestId): Boolean {
-        val request = synchronized(guard) { findActive(requestId) } ?: return false
-        return abortIfNotSent(request, AbortReason.AUTHENTICATION_FAILED, null)
-    }
+    public fun requestUnlock(target: LockTarget): StartResult = request(target, LockIntent.UNLOCK)
 
     /**
      * 送信前の要求だけを破棄する。送信済みの命令は機器側で取り消せないので false を返す。
@@ -122,29 +67,23 @@ public class LockCommandCoordinator(
         }
     }
 
-    private fun startRequest(target: LockTarget, intent: LockIntent): RequestStart {
+    private fun request(target: LockTarget, intent: LockIntent): StartResult {
         val request = synchronized(guard) {
-            if (target.route !in transportsByRoute) return RequestStart.Rejected(RejectReason.ROUTE_UNAVAILABLE)
-            if (target.lockId in activeRequests) return RequestStart.Rejected(RejectReason.OPERATION_IN_PROGRESS)
+            if (target.route !in transportsByRoute) return StartResult.Rejected(RejectReason.ROUTE_UNAVAILABLE)
+            if (target.lockId in activeRequests) return StartResult.Rejected(RejectReason.OPERATION_IN_PROGRESS)
             val request = ActiveRequest(
                 requestId = requestIdFactory.create(),
                 target = target,
                 intent = intent,
                 createdAtElapsedMillis = clock.elapsedRealtimeMillis(),
-                stage = when (intent) {
-                    LockIntent.LOCK -> RequestStage.EXECUTING
-                    LockIntent.UNLOCK -> RequestStage.AWAITING_CONFIRMATION
-                },
             )
             activeRequests[target.lockId] = request
-            phaseFlow(target.lockId).value = when (intent) {
-                LockIntent.LOCK -> CommandPhase.Connecting(request.requestId, intent)
-                LockIntent.UNLOCK -> CommandPhase.AwaitingConfirmation(request.requestId)
-            }
+            phaseFlow(target.lockId).value = CommandPhase.Connecting(request.requestId, intent)
             request
         }
         diagnostics.start(request.requestId, target.lockId, target.route, intent)
-        return RequestStart.Started(request)
+        request.job = scope.launch { execute(request) }
+        return StartResult.Started(request.requestId)
     }
 
     private suspend fun execute(request: ActiveRequest) {
@@ -188,7 +127,6 @@ public class LockCommandCoordinator(
                     val lastMomentViolation = findGuardViolation(request, connection, transport)
                     if (lastMomentViolation == null) {
                         request.sent = true
-                        request.stage = RequestStage.SENT
                     } else {
                         gateRefusal = lastMomentViolation
                     }
@@ -231,8 +169,6 @@ public class LockCommandCoordinator(
             LockIntent.LOCK -> Unit
 
             LockIntent.UNLOCK -> {
-                if (request.confirmedAtElapsedMillis == null) return AbortReason.NOT_CONFIRMED
-                if (request.authenticatedAtElapsedMillis == null) return AbortReason.NOT_AUTHENTICATED
                 if (!foregroundState.isInForeground()) return AbortReason.APP_NOT_IN_FOREGROUND
             }
         }
@@ -316,7 +252,6 @@ public class LockCommandCoordinator(
         synchronized(guard) {
             if (request.sent || activeRequests[request.target.lockId] !== request) return false
             activeRequests.remove(request.target.lockId)
-            request.stage = RequestStage.FINISHED
             phaseFlow(request.target.lockId).value = CommandPhase.Completed(request.requestId, request.intent, CommandOutcome.NotSent(reason, error))
         }
         request.job?.cancel()
@@ -329,7 +264,6 @@ public class LockCommandCoordinator(
             if (activeRequests[request.target.lockId] === request) {
                 activeRequests.remove(request.target.lockId)
             }
-            request.stage = RequestStage.FINISHED
             phaseFlow(request.target.lockId).value = CommandPhase.Completed(request.requestId, request.intent, outcome)
         }
         val error = when (outcome) {
@@ -354,11 +288,7 @@ public class LockCommandCoordinator(
 
     private fun ActiveRequest.sendDeadlineElapsedMillis(): Long = when (intent) {
         LockIntent.LOCK -> createdAtElapsedMillis + config.lockSendDeadlineAfterTap.inWholeMilliseconds
-
-        LockIntent.UNLOCK -> {
-            val authenticatedAt = authenticatedAtElapsedMillis
-            if (authenticatedAt == null) Long.MIN_VALUE else authenticatedAt + config.unlockSendDeadlineAfterAuthentication.inWholeMilliseconds
-        }
+        LockIntent.UNLOCK -> createdAtElapsedMillis + config.unlockSendDeadlineAfterTap.inWholeMilliseconds
     }
 
     private fun CommandOutcome.diagnosticLabel(): String = when (this) {
@@ -367,29 +297,12 @@ public class LockCommandCoordinator(
         is CommandOutcome.NotSent -> "NOT_SENT:${reason.name}"
     }
 
-    private sealed interface RequestStart {
-        data class Started(val request: ActiveRequest) : RequestStart
-
-        data class Rejected(val reason: RejectReason) : RequestStart
-    }
-
-    private enum class RequestStage {
-        AWAITING_CONFIRMATION,
-        AWAITING_AUTHENTICATION,
-        EXECUTING,
-        SENT,
-        FINISHED,
-    }
-
     private class ActiveRequest(
         val requestId: RequestId,
         val target: LockTarget,
         val intent: LockIntent,
         val createdAtElapsedMillis: Long,
-        var stage: RequestStage,
     ) {
-        var confirmedAtElapsedMillis: Long? = null
-        var authenticatedAtElapsedMillis: Long? = null
         var sent: Boolean = false
         var job: Job? = null
     }

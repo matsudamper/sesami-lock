@@ -59,7 +59,5 @@ dependencies {
     implementation(libs.androidxComposeMaterial3)
     implementation(libs.androidxLifecycleViewmodelCompose)
     implementation(libs.androidxLifecycleRuntimeCompose)
-    implementation(libs.androidxFragment)
-    implementation(libs.androidxBiometric)
     implementation(libs.kotlinxCoroutinesAndroid)
 }

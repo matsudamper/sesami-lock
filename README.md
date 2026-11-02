@@ -15,7 +15,7 @@ JDK 25とAndroid SDKを用意して、以下を実行します。
 
 | モジュール | 役割 |
 |---|---|
-| `:app` | Compose UI、ViewModel、BiometricPrompt、依存の組み立て |
+| `:app` | Compose UI、ViewModel、依存の組み立て |
 | `:sesame:core` | `LockIntent`（LOCK / UNLOCK のみ）、状態モデル、`LockTransport` ポート、`LockCommandCoordinator`、鍵取り込み、診断。Android 非依存 |
 | `:sesame:ble` | 公式 SDK による BLE 経路 `SesameBleTransport` |
 | `:sesame:cloud` | Web API による クラウド経路 `SesameCloudTransport` |
@@ -27,8 +27,8 @@ JDK 25とAndroid SDKを用意して、以下を実行します。
 ## 安全設計
 
 - 操作は `LockIntent.LOCK` / `LockIntent.UNLOCK` の 2 つだけ。状態を見て反転させる `toggle()` と `cmd=88` は使わない（`NoToggleUsageTest` で検査）
-- 施錠はタップ 1 回。解錠は「600ms 長押し → 確認ダイアログ → 端末認証」の後に 1 回だけ送る
-- 解錠の送信直前に、確認済み・端末認証済み・認証から 10 秒以内・アプリが前面・接続先一致・経路の認証済み・同じ鍵の未完了操作なし、をまとめて確認する
+- 施錠はタップ 1 回。解錠は 600ms の長押しで 1 回だけ送る（確認ダイアログ・端末認証はなし）
+- 解錠の送信直前に、操作から 10 秒以内・アプリが前面・接続先一致・経路の認証済み・同じ鍵の未完了操作なし、をまとめて確認する
 - 鍵ごとに未完了の操作は 1 件まで。連打や二重コールバックで複数の命令は出ない
 - 送信後はタイムアウトや 5xx でも再送しない。BLE が失敗してもクラウドへ自動で切り替えない
 - 未完了の要求はメモリにだけ持つ。プロセスが終われば消え、後から実行されることはない

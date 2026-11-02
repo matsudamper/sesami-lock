@@ -13,14 +13,6 @@ public sealed interface CommandPhase {
         public val intent: LockIntent
     }
 
-    public data class AwaitingConfirmation(override val requestId: RequestId) : InProgress {
-        override val intent: LockIntent = LockIntent.UNLOCK
-    }
-
-    public data class AwaitingAuthentication(override val requestId: RequestId) : InProgress {
-        override val intent: LockIntent = LockIntent.UNLOCK
-    }
-
     public data class Connecting(override val requestId: RequestId, override val intent: LockIntent) : InProgress
 
     public data class Sending(override val requestId: RequestId, override val intent: LockIntent) : InProgress
@@ -48,15 +40,11 @@ public sealed interface CommandOutcome {
 
 public enum class AbortReason {
     CANCELLED,
-    CONFIRMATION_EXPIRED,
-    AUTHENTICATION_FAILED,
     SEND_DEADLINE_EXPIRED,
     CONNECTION_FAILED,
     APP_NOT_IN_FOREGROUND,
     DEVICE_MISMATCH,
     TRANSPORT_NOT_AUTHENTICATED,
-    NOT_CONFIRMED,
-    NOT_AUTHENTICATED,
 }
 
 public sealed interface StartResult {
