@@ -1,29 +1,37 @@
 package net.matsudamper.sesamilock.ui.add
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,15 +41,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import net.matsudamper.sesamilock.R
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AddLockScreen(
     uiState: AddLockUiState,
@@ -53,19 +60,26 @@ internal fun AddLockScreen(
         if (uiState.closeRequested) currentOnClosed.value()
     }
     BackHandler { uiState.listener.onBackClick() }
-    Surface(modifier = modifier.fillMaxSize()) {
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = { Text("鍵を追加") },
+                navigationIcon = {
+                    IconButton(onClick = { uiState.listener.onBackClick() }) {
+                        Icon(painter = painterResource(R.drawable.ic_arrow_back), contentDescription = "戻る")
+                    }
+                },
+            )
+        },
+    ) { innerPadding ->
         Column(
             modifier = Modifier
-                .safeDrawingPadding()
+                .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { uiState.listener.onBackClick() }) { Text("戻る") }
-                Text("鍵を追加", style = MaterialTheme.typography.headlineSmall)
-            }
-            SafetyNotice()
             OutlinedTextField(
                 value = uiState.name,
                 onValueChange = { uiState.listener.onNameChange(it) },
@@ -73,28 +87,33 @@ internal fun AddLockScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Text("通信経路", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = uiState.bleRouteSelected,
-                    onClick = { uiState.listener.onBleRouteClick() },
-                    label = { Text("BLE（推奨）") },
-                )
-                FilterChip(
-                    selected = !uiState.bleRouteSelected,
-                    onClick = { uiState.listener.onCloudRouteClick() },
-                    label = { Text("クラウド（Hub 3 + Biz API）") },
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("通信経路", style = MaterialTheme.typography.titleSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = uiState.bleRouteSelected,
+                        onClick = { uiState.listener.onBleRouteClick() },
+                        label = { Text("Bluetooth") },
+                    )
+                    FilterChip(
+                        selected = !uiState.bleRouteSelected,
+                        onClick = { uiState.listener.onCloudRouteClick() },
+                        label = { Text("クラウド") },
+                    )
+                }
             }
             uiState.bleInput?.let { BleInputContent(it, uiState.listener) }
             uiState.cloudInput?.let { CloudInputContent(it, uiState.listener) }
-            uiState.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            SafetyNotice()
+            uiState.generalErrorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Button(
                 onClick = { uiState.listener.onSaveClick() },
                 enabled = uiState.saveButtonEnabled,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
             ) {
-                Text("保存")
+                Text("登録")
             }
         }
     }
@@ -102,32 +121,67 @@ internal fun AddLockScreen(
 
 @Composable
 private fun SafetyNotice(modifier: Modifier = Modifier) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
     Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("登録前の確認", style = MaterialTheme.typography.titleMedium)
-            Text("・このアプリには自動解錠・接近解錠・通知からの解錠はありません。公式アプリの手ぶら解錠・オートロック設定は別に管理してください。")
-            Text("・最初の動作確認は、ドアを開けた状態で物理鍵を手元に置いて行ってください。")
-            Text("・施錠位置・解錠位置の設定は変更しません。公式アプリで正しく校正されていることを確認してください。")
-            Text("・鍵情報はこの端末内で暗号化して保存し、バックアップには含めません。")
-            Text("・BLE で必要なのはオーナー / マネージャーの鍵です。サーバー署名が必要なゲスト鍵は使えません。")
+        Column {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            ) {
+                Text("登録前にお読みください", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                Icon(
+                    painter = painterResource(if (expanded) R.drawable.ic_expand_less else R.drawable.ic_expand_more),
+                    contentDescription = if (expanded) "閉じる" else "開く",
+                )
+            }
+            if (expanded) {
+                Column(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text("・このアプリに自動解錠の機能はありません。公式アプリの手ぶら解錠・オートロックは公式アプリで管理してください。")
+                    Text("・最初の動作確認は、ドアを開けた状態で鍵を手元に置いて行ってください。")
+                    Text("・施錠・解錠の位置は公式アプリで設定してください。このアプリでは変更しません。")
+                    Text("・鍵情報はこの端末内に暗号化して保存します。")
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun BleInputContent(input: AddLockUiState.BleInput, listener: AddLockUiState.Listener, modifier: Modifier = Modifier) {
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) listener.onQrImagePicked(uri)
+    }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("対応機種: SESAME 3 / 4 / 5 / 5 Pro / 5 US / 6 / 6 Pro / 6 Pro SlidingDoor / miwa")
         Text(
-            "公式アプリの「鍵をシェア」で従来形式の QR を発行し、その URL（ssm://UI?t=sk&...）を貼り付けてください。" +
-                "エクスポート済みの鍵 JSON も読み込めます。",
-            style = MaterialTheme.typography.bodySmall,
+            "公式アプリの「鍵をシェア」で表示した QR コードのスクリーンショットを選ぶか、QR の内容を貼り付けてください。",
+            style = MaterialTheme.typography.bodyMedium,
         )
+        OutlinedButton(
+            onClick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            enabled = !input.qrReadingProgressVisible,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                if (input.qrReadingProgressVisible) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(painter = painterResource(R.drawable.ic_qr_code_scanner), contentDescription = null)
+                }
+            }
+            Text("画像から QR コードを読み込む", modifier = Modifier.padding(start = 8.dp))
+        }
         SecretTextField(
             value = input.keyText,
             onValueChange = { listener.onKeyTextChange(it) },
             label = "鍵データ",
             singleLine = false,
+            errorMessage = input.keyError,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp),
@@ -139,14 +193,17 @@ private fun BleInputContent(input: AddLockUiState.BleInput, listener: AddLockUiS
 private fun CloudInputContent(input: AddLockUiState.CloudInput, listener: AddLockUiState.Listener, modifier: Modifier = Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            "SESAME Biz 開発者ページで発行した本人用の API キーと、SESAME の秘密鍵を入力してください。BLE が失敗してもクラウドに自動で切り替えることはありません。",
-            style = MaterialTheme.typography.bodySmall,
+            "Hub 3 経由で操作します。SESAME Biz の開発者ページで発行した API キーと、SESAME の UUID・秘密鍵を入力してください。",
+            style = MaterialTheme.typography.bodyMedium,
         )
+        ModelSelector(input = input)
         OutlinedTextField(
             value = input.deviceUuid,
             onValueChange = { listener.onDeviceUuidChange(it) },
-            label = { Text("SESAME の UUID") },
+            label = { Text("UUID") },
             singleLine = true,
+            isError = input.deviceUuidError != null,
+            supportingText = input.deviceUuidError?.let { { Text(it) } },
             modifier = Modifier.fillMaxWidth(),
         )
         SecretTextField(
@@ -154,25 +211,46 @@ private fun CloudInputContent(input: AddLockUiState.CloudInput, listener: AddLoc
             onValueChange = { listener.onApiKeyChange(it) },
             label = "API キー",
             singleLine = true,
+            errorMessage = input.apiKeyError,
             modifier = Modifier.fillMaxWidth(),
         )
         SecretTextField(
             value = input.secretKey,
             onValueChange = { listener.onSecretKeyChange(it) },
-            label = "秘密鍵（32 桁の 16 進数）",
+            label = "秘密鍵",
             singleLine = true,
+            errorMessage = input.secretKeyError,
             modifier = Modifier.fillMaxWidth(),
         )
-        Text("機種", style = MaterialTheme.typography.titleMedium)
-        input.models.forEach { option ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectable(selected = option.selected, role = Role.RadioButton, onClick = { option.listener.onClick() }),
-            ) {
-                RadioButton(selected = option.selected, onClick = null)
-                Text(option.label, color = if (option.selected) MaterialTheme.colorScheme.primary else Color.Unspecified)
+    }
+}
+
+@Composable
+private fun ModelSelector(input: AddLockUiState.CloudInput, modifier: Modifier = Modifier) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Box(modifier = modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = input.selectedModelLabel,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("機種") },
+            trailingIcon = { Icon(painter = painterResource(R.drawable.ic_arrow_drop_down), contentDescription = null) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable { expanded = true },
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            input.models.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label) },
+                    onClick = {
+                        option.listener.onClick()
+                        expanded = false
+                    },
+                )
             }
         }
     }
@@ -184,6 +262,7 @@ private fun SecretTextField(
     onValueChange: (String) -> Unit,
     label: String,
     singleLine: Boolean,
+    errorMessage: String?,
     modifier: Modifier = Modifier,
 ) {
     var revealed by rememberSaveable { mutableStateOf(false) }
@@ -192,6 +271,8 @@ private fun SecretTextField(
         onValueChange = onValueChange,
         label = { Text(label) },
         singleLine = singleLine,
+        isError = errorMessage != null,
+        supportingText = errorMessage?.let { { Text(it) } },
         visualTransformation = if (revealed) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
         trailingIcon = {

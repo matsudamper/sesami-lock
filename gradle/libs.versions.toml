@@ -12,6 +12,7 @@ kotlinxSerialization = "1.12.0"
 lifecycle = "2.11.0"
 androidxAnnotation = "1.11.0"
 gson = "2.15.0"
+zxing = "3.5.4"
 
 [libraries]
 androidxActivityCompose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
@@ -25,6 +26,7 @@ kotlinxCoroutinesAndroid = { group = "org.jetbrains.kotlinx", name = "kotlinx-co
 kotlinxCoroutinesTest = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 kotlinxSerializationJson = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+zxingCore = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 ktlintCli = { group = "com.pinterest.ktlint", name = "ktlint-cli", version.ref = "ktlint" }
 detektCompose = { group = "io.nlopez.compose.rules", name = "detekt", version.ref = "detektCompose" }
 

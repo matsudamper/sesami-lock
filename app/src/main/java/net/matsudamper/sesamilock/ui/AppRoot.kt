@@ -61,7 +61,7 @@ internal fun AppRoot(
         }
 
         Destination.ADD_LOCK -> {
-            val viewModel = viewModel(key = "add-lock-$addLockVisit") { AddLockViewModel(graph.repository) }
+            val viewModel = viewModel(key = "add-lock-$addLockVisit") { AddLockViewModel(graph.repository, graph.qrImageDecoder) }
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             AddLockScreen(
                 uiState = uiState,

@@ -60,4 +60,5 @@ dependencies {
     implementation(libs.androidxLifecycleViewmodelCompose)
     implementation(libs.androidxLifecycleRuntimeCompose)
     implementation(libs.kotlinxCoroutinesAndroid)
+    implementation(libs.zxingCore)
 }

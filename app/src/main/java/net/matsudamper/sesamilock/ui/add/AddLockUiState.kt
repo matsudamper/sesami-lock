@@ -1,5 +1,6 @@
 package net.matsudamper.sesamilock.ui.add
 
+import android.net.Uri
 import androidx.compose.runtime.Immutable
 
 @Immutable
@@ -8,7 +9,7 @@ internal data class AddLockUiState(
     val bleRouteSelected: Boolean,
     val bleInput: BleInput?,
     val cloudInput: CloudInput?,
-    val errorMessage: String?,
+    val generalErrorMessage: String?,
     val saveButtonEnabled: Boolean,
     val closeRequested: Boolean,
     val listener: Listener,
@@ -16,13 +17,19 @@ internal data class AddLockUiState(
     @Immutable
     data class BleInput(
         val keyText: String,
+        val keyError: String?,
+        val qrReadingProgressVisible: Boolean,
     )
 
     @Immutable
     data class CloudInput(
         val deviceUuid: String,
+        val deviceUuidError: String?,
         val apiKey: String,
+        val apiKeyError: String?,
         val secretKey: String,
+        val secretKeyError: String?,
+        val selectedModelLabel: String,
         val models: List<ModelOption>,
     )
 
@@ -41,6 +48,8 @@ internal data class AddLockUiState(
         fun onCloudRouteClick()
 
         fun onKeyTextChange(value: String)
+
+        fun onQrImagePicked(uri: Uri)
 
         fun onDeviceUuidChange(value: String)
 

@@ -1,5 +1,6 @@
 package net.matsudamper.sesamilock.ui.add
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.Locale
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.matsudamper.sesamilock.QrImageDecoder
 import net.matsudamper.sesamilock.sesame.core.key.KeyImportError
 import net.matsudamper.sesamilock.sesame.core.key.KeyImportResult
 import net.matsudamper.sesamilock.sesame.core.key.SesameKeyImporter
@@ -23,6 +25,7 @@ import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 
 internal class AddLockViewModel(
     private val repository: EncryptedLockRepository,
+    private val qrImageDecoder: QrImageDecoder,
 ) : ViewModel() {
     private val form = MutableStateFlow(
         Form(
@@ -33,7 +36,8 @@ internal class AddLockViewModel(
             apiKey = "",
             secretKey = "",
             cloudModel = SesameModel.SESAME_5,
-            errorMessage = null,
+            error = null,
+            qrReading = false,
             saving = false,
             closeRequested = false,
         ),
@@ -41,31 +45,35 @@ internal class AddLockViewModel(
 
     private val listener = object : AddLockUiState.Listener {
         override fun onNameChange(value: String) {
-            form.update { it.copy(name = value, errorMessage = null) }
+            form.update { it.copy(name = value, error = null) }
         }
 
         override fun onBleRouteClick() {
-            form.update { it.copy(route = LockRoute.BLE, errorMessage = null) }
+            form.update { it.copy(route = LockRoute.BLE, error = null) }
         }
 
         override fun onCloudRouteClick() {
-            form.update { it.copy(route = LockRoute.CLOUD, errorMessage = null) }
+            form.update { it.copy(route = LockRoute.CLOUD, error = null) }
         }
 
         override fun onKeyTextChange(value: String) {
-            form.update { it.copy(keyText = value, errorMessage = null) }
+            form.update { it.copy(keyText = value, error = null) }
+        }
+
+        override fun onQrImagePicked(uri: Uri) {
+            readQrImage(uri)
         }
 
         override fun onDeviceUuidChange(value: String) {
-            form.update { it.copy(deviceUuid = value, errorMessage = null) }
+            form.update { it.copy(deviceUuid = value, error = null) }
         }
 
         override fun onApiKeyChange(value: String) {
-            form.update { it.copy(apiKey = value, errorMessage = null) }
+            form.update { it.copy(apiKey = value, error = null) }
         }
 
         override fun onSecretKeyChange(value: String) {
-            form.update { it.copy(secretKey = value, errorMessage = null) }
+            form.update { it.copy(secretKey = value, error = null) }
         }
 
         override fun onSaveClick() {
@@ -86,12 +94,24 @@ internal class AddLockViewModel(
     private fun buildUiState(form: Form): AddLockUiState = AddLockUiState(
         name = form.name,
         bleRouteSelected = form.route == LockRoute.BLE,
-        bleInput = if (form.route == LockRoute.BLE) AddLockUiState.BleInput(form.keyText) else null,
+        bleInput = if (form.route == LockRoute.BLE) {
+            AddLockUiState.BleInput(
+                keyText = form.keyText,
+                keyError = form.error?.messageFor(FormField.KEY),
+                qrReadingProgressVisible = form.qrReading,
+            )
+        } else {
+            null
+        },
         cloudInput = if (form.route == LockRoute.CLOUD) {
             AddLockUiState.CloudInput(
                 deviceUuid = form.deviceUuid,
+                deviceUuidError = form.error?.messageFor(FormField.DEVICE_UUID),
                 apiKey = form.apiKey,
+                apiKeyError = form.error?.messageFor(FormField.API_KEY),
                 secretKey = form.secretKey,
+                secretKeyError = form.error?.messageFor(FormField.SECRET_KEY),
+                selectedModelLabel = form.cloudModel.displayName,
                 models = SesameModel.entries.map { model ->
                     AddLockUiState.ModelOption(
                         label = model.displayName,
@@ -107,7 +127,7 @@ internal class AddLockViewModel(
         } else {
             null
         },
-        errorMessage = form.errorMessage,
+        generalErrorMessage = form.error?.messageFor(FormField.GENERAL),
         saveButtonEnabled = !form.saving && !form.closeRequested,
         closeRequested = form.closeRequested,
         listener = listener,
@@ -122,29 +142,44 @@ internal class AddLockViewModel(
         }
         val lock = when (parsed) {
             is Parsed.Error -> {
-                form.update { it.copy(errorMessage = parsed.message) }
+                form.update { it.copy(error = parsed.error) }
                 return
             }
 
             is Parsed.Lock -> parsed.lock
         }
-        form.update { it.copy(saving = true, errorMessage = null) }
+        form.update { it.copy(saving = true, error = null) }
         viewModelScope.launch {
             when (repository.add(lock)) {
                 AddLockResult.ADDED -> form.update { it.clearedSecrets().copy(saving = false, closeRequested = true) }
-                AddLockResult.ALREADY_REGISTERED -> form.update { it.copy(saving = false, errorMessage = "この SESAME は登録済みです。既存の鍵は変更していません") }
-                AddLockResult.NOT_READY -> form.update { it.copy(saving = false, errorMessage = "保存領域を読み込めていません") }
+                AddLockResult.ALREADY_REGISTERED -> form.update { it.copy(saving = false, error = FormError(FormField.GENERAL, "この SESAME は登録済みです。既存の鍵は変更していません")) }
+                AddLockResult.NOT_READY -> form.update { it.copy(saving = false, error = FormError(FormField.GENERAL, "保存領域を読み込めていません")) }
+            }
+        }
+    }
+
+    private fun readQrImage(uri: Uri) {
+        if (form.value.qrReading) return
+        form.update { it.copy(qrReading = true, error = null) }
+        viewModelScope.launch {
+            val text = runCatching { qrImageDecoder.decode(uri) }.getOrNull()
+            form.update { current ->
+                if (text == null) {
+                    current.copy(qrReading = false, error = FormError(FormField.KEY, "画像から QR コードを読み取れませんでした"))
+                } else {
+                    current.copy(qrReading = false, keyText = text)
+                }
             }
         }
     }
 
     private fun parseBle(form: Form): Parsed = when (val result = SesameKeyImporter.import(form.keyText)) {
-        is KeyImportResult.Failure -> Parsed.Error(importErrorMessage(result.error))
+        is KeyImportResult.Failure -> Parsed.Error(FormError(FormField.KEY, importErrorMessage(result.error)))
 
         is KeyImportResult.Success -> {
             val id = LockId.fromDeviceUuid(result.credential.deviceUuid)
             if (id == null) {
-                Parsed.Error(importErrorMessage(KeyImportError.INVALID_UUID))
+                Parsed.Error(FormError(FormField.KEY, importErrorMessage(KeyImportError.INVALID_UUID)))
             } else {
                 val name = form.name.trim().ifEmpty { result.suggestedName ?: result.credential.model.displayName }
                 Parsed.Lock(RegisteredLock(id, name, result.credential))
@@ -153,11 +188,12 @@ internal class AddLockViewModel(
     }
 
     private fun parseCloud(form: Form): Parsed {
-        val id = LockId.fromDeviceUuid(form.deviceUuid.trim()) ?: return Parsed.Error("UUID の形式が正しくありません")
-        val secret = form.secretKey.trim().lowercase(Locale.ROOT)
-        if (!secretKeyPattern.matches(secret)) return Parsed.Error("秘密鍵は 32 桁の 16 進数で入力してください")
+        val id = LockId.fromDeviceUuid(form.deviceUuid.trim())
+            ?: return Parsed.Error(FormError(FormField.DEVICE_UUID, "UUID の形式が正しくありません"))
         val apiKey = form.apiKey.trim()
-        if (apiKey.isEmpty()) return Parsed.Error("API キーを入力してください")
+        if (apiKey.isEmpty()) return Parsed.Error(FormError(FormField.API_KEY, "API キーを入力してください"))
+        val secret = form.secretKey.trim().lowercase(Locale.ROOT)
+        if (!secretKeyPattern.matches(secret)) return Parsed.Error(FormError(FormField.SECRET_KEY, "32 桁の 16 進数で入力してください"))
         val credential = LockCredential.Cloud(
             deviceUuid = id.value,
             model = form.cloudModel,
@@ -182,7 +218,19 @@ internal class AddLockViewModel(
     private sealed interface Parsed {
         data class Lock(val lock: RegisteredLock) : Parsed
 
-        data class Error(val message: String) : Parsed
+        data class Error(val error: FormError) : Parsed
+    }
+
+    private enum class FormField {
+        KEY,
+        DEVICE_UUID,
+        API_KEY,
+        SECRET_KEY,
+        GENERAL,
+    }
+
+    private data class FormError(val field: FormField, val message: String) {
+        fun messageFor(target: FormField): String? = message.takeIf { field == target }
     }
 
     private data class Form(
@@ -193,7 +241,8 @@ internal class AddLockViewModel(
         val apiKey: String,
         val secretKey: String,
         val cloudModel: SesameModel,
-        val errorMessage: String?,
+        val error: FormError?,
+        val qrReading: Boolean,
         val saving: Boolean,
         val closeRequested: Boolean,
     ) {
