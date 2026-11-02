@@ -19,6 +19,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -30,9 +32,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import net.matsudamper.sesamilock.R
 import net.matsudamper.sesamilock.ui.component.HoldToActivateButton
 
 private const val UnlockHoldMillis = 600
@@ -128,7 +132,9 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
                     Text(card.name, style = MaterialTheme.typography.titleLarge)
                     Text(card.description, style = MaterialTheme.typography.bodySmall)
                 }
-                TextButton(onClick = { card.listener.onRefreshClick() }) { Text("更新") }
+                IconButton(onClick = { card.listener.onRefreshClick() }) {
+                    Icon(painter = painterResource(R.drawable.ic_refresh), contentDescription = "更新")
+                }
                 TextButton(onClick = { card.listener.onDeleteClick() }) { Text("削除") }
             }
             Text(
