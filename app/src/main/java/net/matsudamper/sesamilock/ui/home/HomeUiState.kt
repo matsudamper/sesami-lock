@@ -24,13 +24,12 @@ internal data class HomeUiState(
     @Immutable
     data class LockCard(
         val name: String,
-        val description: String,
-        val stateLabel: String,
-        val stateTone: Tone,
-        val observedAtLabel: String,
-        val batteryWarningVisible: Boolean,
-        val progressLabel: String?,
-        val registrationErrorVisible: Boolean,
+        val detail: String,
+        val statusLabel: String,
+        val statusIcon: StatusIcon,
+        val statusTone: Tone,
+        val progressVisible: Boolean,
+        val warningMessage: String?,
         val lockButtonEnabled: Boolean,
         val unlockButtonEnabled: Boolean,
         val listener: LockCardListener,
@@ -40,7 +39,14 @@ internal data class HomeUiState(
         NEUTRAL,
         LOCKED,
         UNLOCKED,
-        WARNING,
+    }
+
+    enum class StatusIcon {
+        LOCKED,
+        UNLOCKED,
+        MOVING,
+        UNKNOWN,
+        DISCONNECTED,
     }
 
     @Immutable
@@ -74,6 +80,8 @@ internal data class HomeUiState(
         fun onLockClick()
 
         fun onUnlockLongPress()
+
+        fun onUnlockTap()
 
         fun onRefreshClick()
 

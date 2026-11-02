@@ -25,6 +25,7 @@ import net.matsudamper.sesamilock.sesame.core.coordinator.LockCommandCoordinator
 import net.matsudamper.sesamilock.sesame.core.coordinator.LockTarget
 import net.matsudamper.sesamilock.sesame.core.coordinator.StartResult
 import net.matsudamper.sesamilock.sesame.core.model.LockClock
+import net.matsudamper.sesamilock.sesame.core.model.LockDisplayState
 import net.matsudamper.sesamilock.sesame.core.model.LockId
 import net.matsudamper.sesamilock.sesame.core.model.LockRoute
 import net.matsudamper.sesamilock.sesame.core.model.LockSnapshot
@@ -151,16 +152,39 @@ internal class HomeViewModel(
         val displayState = model.snapshot.toDisplayState(now, STATE_FRESHNESS)
         val observation = model.snapshot.observation
         val phase = model.phase
-        val operable = phase !is CommandPhase.InProgress && !registrationRejected
+        val nowWall = clock.currentTimeMillis()
+        val observedAgo = observation?.let { LockTexts.relativeTime(it.observedAtWallMillis, nowWall) }
+        val detail = when {
+            observation == null -> "${lock.model.displayName} ・ ${LockTexts.route(lock.route)}"
+
+            displayState == LockDisplayState.STALE || displayState == LockDisplayState.DISCONNECTED ->
+                "前回は${LockTexts.previousState(observation.state)}（$observedAgo）"
+
+            else -> "$observedAgo に確認 ・ ${LockTexts.route(lock.route)}"
+        }
+        val inProgress = phase as? CommandPhase.InProgress
+        val operable = inProgress == null && !registrationRejected
         return HomeUiState.LockCard(
             name = lock.displayName,
-            description = "${lock.model.displayName} ・ ${LockTexts.route(lock.route)}",
-            stateLabel = LockTexts.displayState(displayState, observation?.state),
-            stateTone = LockTexts.displayTone(displayState),
-            observedAtLabel = observation?.let { "最終観測 ${LockTexts.time(it.observedAtWallMillis)}（${LockTexts.route(lock.route)}）" } ?: "観測なし",
-            batteryWarningVisible = observation?.batteryCritical == true,
-            progressLabel = (phase as? CommandPhase.InProgress)?.let(LockTexts::inProgress),
-            registrationErrorVisible = registrationRejected,
+            detail = detail,
+            statusLabel = inProgress?.let(LockTexts::inProgress) ?: LockTexts.status(displayState),
+            statusIcon = LockTexts.statusIcon(displayState),
+            statusTone = when (LockTexts.statusIcon(displayState)) {
+                HomeUiState.StatusIcon.LOCKED -> HomeUiState.Tone.LOCKED
+
+                HomeUiState.StatusIcon.UNLOCKED -> HomeUiState.Tone.UNLOCKED
+
+                HomeUiState.StatusIcon.MOVING,
+                HomeUiState.StatusIcon.UNKNOWN,
+                HomeUiState.StatusIcon.DISCONNECTED,
+                -> HomeUiState.Tone.NEUTRAL
+            },
+            progressVisible = inProgress != null,
+            warningMessage = when {
+                registrationRejected -> "この鍵を読み込めませんでした。登録し直してください"
+                observation?.batteryCritical == true -> "電池残量が少なくなっています"
+                else -> null
+            },
             lockButtonEnabled = operable,
             unlockButtonEnabled = operable,
             listener = cardListener(lock),
@@ -186,6 +210,10 @@ internal class HomeViewModel(
             if (result is StartResult.Rejected) showMessage(lock.id, LockTexts.rejected(result.reason))
         }
 
+        override fun onUnlockTap() {
+            showMessage(lock.id, "解錠するには長押ししてください")
+        }
+
         override fun onRefreshClick() {
             refresh(lock)
         }
@@ -201,8 +229,12 @@ internal class HomeViewModel(
         val transientMessage = view.messages[lockId]
         val (key, message, requiresAcknowledgement) = when {
             phase is CommandPhase.Completed -> {
-                val (text, tone) = LockTexts.outcome(phase.intent, phase.outcome)
-                Triple("${lockId.value}:${phase.requestId.value}", "${model.lock.displayName}: ${transientMessage ?: text}", tone == HomeUiState.Tone.WARNING)
+                val outcome = LockTexts.outcome(phase.intent, phase.outcome)
+                Triple(
+                    "${lockId.value}:${phase.requestId.value}",
+                    "${model.lock.displayName}: ${transientMessage ?: outcome.message}",
+                    outcome.requiresAcknowledgement,
+                )
             }
 
             transientMessage != null -> Triple("${lockId.value}:$transientMessage", "${model.lock.displayName}: $transientMessage", false)
@@ -249,8 +281,8 @@ internal class HomeViewModel(
                 LockRoute.BLE -> {
                     val result = withTimeoutOrNull(OBSERVATION_CONNECT_TIMEOUT) { transport.ensureConnected(lock.id) }
                     when (result) {
-                        null -> showMessage(lock.id, "状態の取得: 接続できませんでした（タイムアウト）")
-                        is ConnectionResult.Failed -> showMessage(lock.id, "状態の取得: ${LockTexts.error(result.error)}")
+                        null -> showMessage(lock.id, "SESAME が見つかりませんでした。近くで操作してください")
+                        is ConnectionResult.Failed -> showMessage(lock.id, LockTexts.error(result.error))
                         is ConnectionResult.Ready -> clearMessage(lock.id)
                     }
                 }

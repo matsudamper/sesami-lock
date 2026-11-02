@@ -3,13 +3,16 @@ package net.matsudamper.sesamilock.ui.component
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,10 +24,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -35,12 +40,13 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun HoldToActivateButton(
     text: String,
+    icon: Painter,
     enabled: Boolean,
     holdMillis: Int,
-    containerColor: Color,
-    contentColor: Color,
+    color: Color,
     minHeight: Dp,
     onActivate: () -> Unit,
+    onTapWithoutHold: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val progress = remember { Animatable(0f) }
@@ -50,29 +56,34 @@ internal fun HoldToActivateButton(
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         onActivate()
     }
-    val background = if (enabled) containerColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-    val foreground = if (enabled) contentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-    Box(
+    val contentColor = if (enabled) color else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    val borderColor = if (enabled) color else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    val shape = RoundedCornerShape(16.dp)
+    Row(
         modifier = modifier
             .heightIn(min = minHeight)
-            .clip(RoundedCornerShape(16.dp))
-            .background(background)
+            .clip(shape)
             .drawBehind {
                 drawRect(
-                    color = Color.Black.copy(alpha = 0.25f),
+                    color = color.copy(alpha = 0.2f),
                     size = Size(width = size.width * progress.value, height = size.height),
                 )
             }
+            .border(1.dp, borderColor, shape)
             .semantics {
                 role = Role.Button
                 if (enabled) {
+                    onClick {
+                        onTapWithoutHold()
+                        true
+                    }
                     onLongClick(label = text) {
                         activate()
                         true
                     }
                 }
             }
-            .pointerInput(enabled, holdMillis, onActivate) {
+            .pointerInput(enabled, holdMillis, onActivate, onTapWithoutHold) {
                 if (!enabled) return@pointerInput
                 awaitEachGesture {
                     awaitFirstDown()
@@ -80,20 +91,27 @@ internal fun HoldToActivateButton(
                         progress.snapTo(0f)
                         progress.animateTo(1f, tween(durationMillis = holdMillis, easing = LinearEasing))
                     }
-                    val gestureEndedBeforeHold = withTimeoutOrNull(holdMillis.toLong()) {
-                        waitForUpOrCancellation()
-                        true
-                    } ?: false
-                    animation.cancel()
-                    if (!gestureEndedBeforeHold) {
-                        activate()
-                        waitForUpOrCancellation()
+                    val releasedBeforeHold = withTimeoutOrNull(holdMillis.toLong()) {
+                        waitForUpOrCancellation() != null
                     }
-                    scope.launch { progress.snapTo(0f) }
+                    animation.cancel()
+                    when (releasedBeforeHold) {
+                        null -> {
+                            activate()
+                            waitForUpOrCancellation()
+                        }
+
+                        true -> onTapWithoutHold()
+
+                        false -> Unit
+                    }
+                    scope.launch { progress.animateTo(0f, tween(durationMillis = 150)) }
                 }
             },
-        contentAlignment = Alignment.Center,
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = text, color = foreground, style = MaterialTheme.typography.titleLarge)
+        Icon(painter = icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(20.dp))
+        Text(text = text, color = contentColor, style = MaterialTheme.typography.titleMedium)
     }
 }
