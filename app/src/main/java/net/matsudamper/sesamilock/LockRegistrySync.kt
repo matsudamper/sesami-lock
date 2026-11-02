@@ -20,6 +20,8 @@ internal class LockRegistrySync(
 ) {
     private val mutableRejectedLockIds = MutableStateFlow<Set<LockId>>(setOf())
     val rejectedLockIds: StateFlow<Set<LockId>> = mutableRejectedLockIds.asStateFlow()
+    private val mutableRegisteredLocks = MutableStateFlow<List<RegisteredLock>>(listOf())
+    val registeredLocks: StateFlow<List<RegisteredLock>> = mutableRegisteredLocks.asStateFlow()
     private var registered: Map<LockId, RegisteredLock> = mapOf()
 
     fun start(scope: CoroutineScope) {
@@ -34,8 +36,10 @@ internal class LockRegistrySync(
         val next = locks.associateBy { it.id }
         registered.filterKeys { it !in next }.values.forEach { unregister(it) }
         val rejected = next.values.filter { it.id !in registered }.filterNot { register(it) }.map { it.id }.toSet()
-        mutableRejectedLockIds.value = (mutableRejectedLockIds.value intersect next.keys) + rejected
+        val nextRejected = (mutableRejectedLockIds.value intersect next.keys) + rejected
+        mutableRejectedLockIds.value = nextRejected
         registered = next
+        mutableRegisteredLocks.value = next.values.filter { it.id !in nextRejected }
     }
 
     private fun register(lock: RegisteredLock): Boolean = when (val credential = lock.credential) {

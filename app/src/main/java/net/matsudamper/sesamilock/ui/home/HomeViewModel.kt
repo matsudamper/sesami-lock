@@ -39,7 +39,7 @@ internal class HomeViewModel(
     private val transports: Map<LockRoute, LockTransport>,
     private val coordinator: LockCommandCoordinator,
     private val clock: LockClock,
-    registrySync: LockRegistrySync,
+    private val registrySync: LockRegistrySync,
     private val blePermissions: BlePermissions,
 ) : ViewModel() {
     private val viewState = MutableStateFlow(
@@ -105,6 +105,16 @@ internal class HomeViewModel(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = buildUiState(LocksModel.Loading, viewState.value, clock.elapsedRealtimeMillis(), setOf()),
     )
+
+    init {
+        viewModelScope.launch {
+            var refreshedLockIds = setOf<LockId>()
+            registrySync.registeredLocks.collect { locks ->
+                locks.filter { it.id !in refreshedLockIds }.forEach(::refresh)
+                refreshedLockIds = locks.map { it.id }.toSet()
+            }
+        }
+    }
 
     private fun buildUiState(locks: LocksModel, view: ViewState, now: Long, rejectedLockIds: Set<LockId>): HomeUiState {
         val models = (locks as? LocksModel.Loaded)?.locks.orEmpty()
@@ -202,8 +212,7 @@ internal class HomeViewModel(
     )
 
     private fun refreshAll() {
-        val state = repository.state.value as? LockRepositoryState.Loaded ?: return
-        state.locks.forEach(::refresh)
+        registrySync.registeredLocks.value.forEach(::refresh)
     }
 
     private fun refresh(lock: RegisteredLock) {
