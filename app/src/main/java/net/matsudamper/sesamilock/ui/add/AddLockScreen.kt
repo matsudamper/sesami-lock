@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -29,8 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -118,8 +115,6 @@ private fun BleInputContent(input: AddLockUiState.BleInput, listener: AddLockUiS
             value = input.keyText,
             onValueChange = { listener.onKeyTextChange(it) },
             label = { Text("鍵データ") },
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp),
@@ -146,8 +141,6 @@ private fun CloudInputContent(input: AddLockUiState.CloudInput, listener: AddLoc
             onValueChange = { listener.onApiKeyChange(it) },
             label = { Text("API キー") },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
@@ -155,8 +148,6 @@ private fun CloudInputContent(input: AddLockUiState.CloudInput, listener: AddLoc
             onValueChange = { listener.onSecretKeyChange(it) },
             label = { Text("秘密鍵（32 桁の 16 進数）") },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
             modifier = Modifier.fillMaxWidth(),
         )
         Text("機種", style = MaterialTheme.typography.titleMedium)
