@@ -11,29 +11,41 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import net.matsudamper.sesamilock.R
@@ -43,6 +55,7 @@ private const val UnlockHoldMillis = 600
 private val lockedColor = Color(0xFF1B5E20)
 private val unlockedColor = Color(0xFFB71C1C)
 private val warningColor = Color(0xFFE65100)
+private val actionButtonHeight = 64.dp
 
 @Composable
 internal fun HomeScreen(
@@ -55,9 +68,22 @@ internal fun HomeScreen(
         uiState.listener.onResume()
         onPauseOrDispose { }
     }
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(uiState.snackbar) {
+        val snackbar = uiState.snackbar ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(
+            message = snackbar.message,
+            withDismissAction = snackbar.requiresAcknowledgement,
+            duration = if (snackbar.requiresAcknowledgement) SnackbarDuration.Indefinite else SnackbarDuration.Short,
+        )
+        snackbar.listener.onDismissed()
+    }
 
-    Surface(modifier = modifier.fillMaxSize()) {
-        Column(modifier = Modifier.safeDrawingPadding()) {
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { innerPadding ->
+        Column(modifier = Modifier.padding(innerPadding)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -78,10 +104,7 @@ internal fun HomeScreen(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
 
-                HomeUiState.Content.Empty -> Text(
-                    text = "鍵が登録されていません。「鍵を追加」から登録してください。",
-                    modifier = Modifier.padding(16.dp),
-                )
+                HomeUiState.Content.Empty -> EmptyContent(onAddLockClick = onAddLockClick)
 
                 is HomeUiState.Content.Unrecoverable -> UnrecoverableContent(content)
 
@@ -114,12 +137,67 @@ private fun PermissionBanner(banner: HomeUiState.PermissionBanner, modifier: Mod
 }
 
 @Composable
+private fun EmptyContent(onAddLockClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_lock),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(64.dp),
+        )
+        Text("鍵がまだありません", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "公式アプリで共有した鍵を登録すると、ここから施錠・解錠できます。",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+        )
+        Button(onClick = onAddLockClick) { Text("鍵を追加") }
+    }
+}
+
+@Composable
 private fun UnrecoverableContent(content: HomeUiState.Content.Unrecoverable, modifier: Modifier = Modifier) {
-    Column(modifier = modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("保存された鍵情報を復元できません。端末の移行やバックアップ復元で暗号鍵が変わった可能性があります。鍵情報を削除して登録し直してください。")
-        Button(onClick = { content.listener.onDeleteAllClick() }) {
-            Text("保存された鍵情報を削除")
-        }
+    var confirmVisible by rememberSaveable { mutableStateOf(false) }
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("鍵情報を読み込めませんでした", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "機種変更やバックアップからの復元のあとに起きることがあります。お手数ですが、鍵を登録し直してください。",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+        )
+        Button(onClick = { confirmVisible = true }) { Text("登録し直す") }
+    }
+    if (confirmVisible) {
+        AlertDialog(
+            onDismissRequest = { confirmVisible = false },
+            title = { Text("保存されている鍵情報を消去しますか？") },
+            text = { Text("この端末に保存された鍵情報を消去します。SESAME 本体や公式アプリの鍵は変わりません。") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        confirmVisible = false
+                        content.listener.onDeleteAllClick()
+                    },
+                ) {
+                    Text("消去")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { confirmVisible = false }) { Text("キャンセル") }
+            },
+        )
     }
 }
 
@@ -135,7 +213,7 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
                 IconButton(onClick = { card.listener.onRefreshClick() }) {
                     Icon(painter = painterResource(R.drawable.ic_refresh), contentDescription = "更新")
                 }
-                TextButton(onClick = { card.listener.onDeleteClick() }) { Text("削除") }
+                LockCardMenu(onDeleteClick = { card.listener.onDeleteClick() })
             }
             Text(
                 text = card.stateLabel,
@@ -150,34 +228,58 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
             if (card.registrationErrorVisible) {
                 Text("この鍵は BLE に登録できませんでした。鍵情報を確認してください", color = warningColor)
             }
-            if (card.operationProgressVisible) {
+            card.progressLabel?.let { label ->
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Text(label, style = MaterialTheme.typography.bodySmall)
             }
-            card.operationMessage?.let { message ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = message, color = card.operationTone.color(), modifier = Modifier.weight(1f))
-                    if (card.dismissOperationVisible) {
-                        TextButton(onClick = { card.listener.onDismissOperationClick() }) { Text("閉じる") }
-                    }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = { card.listener.onLockClick() },
+                    enabled = card.lockButtonEnabled,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = lockedColor, contentColor = Color.White),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = actionButtonHeight),
+                ) {
+                    Text("施錠", style = MaterialTheme.typography.titleLarge)
                 }
+                HoldToActivateButton(
+                    text = "解錠",
+                    enabled = card.unlockButtonEnabled,
+                    holdMillis = UnlockHoldMillis,
+                    containerColor = unlockedColor,
+                    contentColor = Color.White,
+                    minHeight = actionButtonHeight,
+                    onActivate = { card.listener.onUnlockLongPress() },
+                    modifier = Modifier.weight(1f),
+                )
             }
-            Button(
-                onClick = { card.listener.onLockClick() },
-                enabled = card.lockButtonEnabled,
-                colors = ButtonDefaults.buttonColors(containerColor = lockedColor),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 72.dp),
-            ) {
-                Text("施錠", style = MaterialTheme.typography.headlineSmall)
-            }
-            HoldToActivateButton(
-                text = "解錠（長押し）",
-                enabled = card.unlockButtonEnabled,
-                holdMillis = UnlockHoldMillis,
-                color = unlockedColor,
-                onActivate = { card.listener.onUnlockLongPress() },
+            Text(
+                text = "解錠はボタンを長押しします",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
                 modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun LockCardMenu(onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        IconButton(onClick = { expanded = true }) {
+            Icon(painter = painterResource(R.drawable.ic_more_vert), contentDescription = "その他")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("この鍵を削除") },
+                onClick = {
+                    expanded = false
+                    onDeleteClick()
+                },
             )
         }
     }

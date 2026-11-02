@@ -7,6 +7,7 @@ internal data class HomeUiState(
     val content: Content,
     val permissionBanner: PermissionBanner?,
     val deleteConfirmation: DeleteConfirmation?,
+    val snackbar: Snackbar?,
     val listener: Listener,
 ) {
     @Immutable
@@ -28,10 +29,7 @@ internal data class HomeUiState(
         val stateTone: Tone,
         val observedAtLabel: String,
         val batteryWarningVisible: Boolean,
-        val operationMessage: String?,
-        val operationTone: Tone,
-        val operationProgressVisible: Boolean,
-        val dismissOperationVisible: Boolean,
+        val progressLabel: String?,
         val registrationErrorVisible: Boolean,
         val lockButtonEnabled: Boolean,
         val unlockButtonEnabled: Boolean,
@@ -49,6 +47,13 @@ internal data class HomeUiState(
     data class PermissionBanner(
         val requiredPermissions: List<String>,
         val listener: PermissionListener,
+    )
+
+    @Immutable
+    data class Snackbar(
+        val message: String,
+        val requiresAcknowledgement: Boolean,
+        val listener: SnackbarListener,
     )
 
     @Immutable
@@ -72,9 +77,11 @@ internal data class HomeUiState(
 
         fun onRefreshClick()
 
-        fun onDismissOperationClick()
-
         fun onDeleteClick()
+    }
+
+    interface SnackbarListener {
+        fun onDismissed()
     }
 
     interface PermissionListener {

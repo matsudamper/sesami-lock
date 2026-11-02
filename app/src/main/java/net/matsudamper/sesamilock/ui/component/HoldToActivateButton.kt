@@ -3,7 +3,7 @@ package net.matsudamper.sesamilock.ui.component
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -22,11 +22,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
@@ -35,31 +38,38 @@ internal fun HoldToActivateButton(
     text: String,
     enabled: Boolean,
     holdMillis: Int,
-    color: Color,
+    containerColor: Color,
+    contentColor: Color,
+    minHeight: Dp,
     onActivate: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val progress = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
     val currentOnActivate = rememberUpdatedState(onActivate)
-    val contentColor = if (enabled) color else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-    val shape = RoundedCornerShape(24.dp)
+    val activate = {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        currentOnActivate.value()
+    }
+    val background = if (enabled) containerColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    val foreground = if (enabled) contentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
     Box(
         modifier = modifier
-            .heightIn(min = 56.dp)
-            .clip(shape)
+            .heightIn(min = minHeight)
+            .clip(RoundedCornerShape(16.dp))
+            .background(background)
             .drawBehind {
                 drawRect(
-                    color = contentColor.copy(alpha = 0.35f),
+                    color = Color.Black.copy(alpha = 0.25f),
                     size = Size(width = size.width * progress.value, height = size.height),
                 )
             }
-            .border(2.dp, contentColor, shape)
             .semantics {
                 role = Role.Button
                 if (enabled) {
                     onLongClick(label = text) {
-                        currentOnActivate.value()
+                        activate()
                         true
                     }
                 }
@@ -78,7 +88,7 @@ internal fun HoldToActivateButton(
                     } ?: false
                     animation.cancel()
                     if (!gestureEndedBeforeHold) {
-                        currentOnActivate.value()
+                        activate()
                         waitForUpOrCancellation()
                     }
                     scope.launch { progress.snapTo(0f) }
@@ -86,6 +96,6 @@ internal fun HoldToActivateButton(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = text, color = contentColor, style = MaterialTheme.typography.titleMedium)
+        Text(text = text, color = foreground, style = MaterialTheme.typography.titleLarge)
     }
 }

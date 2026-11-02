@@ -50,6 +50,8 @@ internal class HomeViewModel(
         ),
     )
 
+    private var snackbarCache: Pair<String, HomeUiState.Snackbar>? = null
+
     private val ticker: Flow<Long> = flow {
         while (true) {
             emit(clock.elapsedRealtimeMillis())
@@ -128,7 +130,7 @@ internal class HomeViewModel(
                 is LocksModel.Loaded -> if (models.isEmpty()) {
                     HomeUiState.Content.Empty
                 } else {
-                    HomeUiState.Content.Locks(models.map { createCard(it, view, now, it.lock.id in rejectedLockIds) })
+                    HomeUiState.Content.Locks(models.map { createCard(it, now, it.lock.id in rejectedLockIds) })
                 }
             },
             permissionBanner = if (needsBlePermission) {
@@ -137,20 +139,16 @@ internal class HomeViewModel(
                 null
             },
             deleteConfirmation = view.pendingDeleteLockId?.let { id -> models.firstOrNull { it.lock.id == id } }?.let(::createDeleteConfirmation),
+            snackbar = models.firstNotNullOfOrNull { createSnackbar(it, view) },
             listener = listener,
         )
     }
 
-    private fun createCard(model: LockModel, view: ViewState, now: Long, registrationRejected: Boolean): HomeUiState.LockCard {
+    private fun createCard(model: LockModel, now: Long, registrationRejected: Boolean): HomeUiState.LockCard {
         val lock = model.lock
         val displayState = model.snapshot.toDisplayState(now, STATE_FRESHNESS)
         val observation = model.snapshot.observation
         val phase = model.phase
-        val operation: Pair<String, HomeUiState.Tone>? = when (phase) {
-            is CommandPhase.InProgress -> LockTexts.inProgress(phase) to HomeUiState.Tone.NEUTRAL
-            is CommandPhase.Completed -> view.messages[lock.id]?.let { it to HomeUiState.Tone.NEUTRAL } ?: LockTexts.outcome(phase.intent, phase.outcome)
-            CommandPhase.Idle -> view.messages[lock.id]?.let { it to HomeUiState.Tone.NEUTRAL }
-        }
         val operable = phase !is CommandPhase.InProgress && !registrationRejected
         return HomeUiState.LockCard(
             name = lock.displayName,
@@ -159,10 +157,7 @@ internal class HomeViewModel(
             stateTone = LockTexts.displayTone(displayState),
             observedAtLabel = observation?.let { "最終観測 ${LockTexts.time(it.observedAtWallMillis)}（${LockTexts.route(lock.route)}）" } ?: "観測なし",
             batteryWarningVisible = observation?.batteryCritical == true,
-            operationMessage = operation?.first,
-            operationTone = operation?.second ?: HomeUiState.Tone.NEUTRAL,
-            operationProgressVisible = phase is CommandPhase.Connecting || phase is CommandPhase.Sending || phase is CommandPhase.AwaitingStateVerification,
-            dismissOperationVisible = phase is CommandPhase.Completed || (phase is CommandPhase.Idle && lock.id in view.messages),
+            progressLabel = (phase as? CommandPhase.InProgress)?.let(LockTexts::inProgress),
             registrationErrorVisible = registrationRejected,
             lockButtonEnabled = operable,
             unlockButtonEnabled = operable,
@@ -187,14 +182,38 @@ internal class HomeViewModel(
             refresh(lock)
         }
 
-        override fun onDismissOperationClick() {
-            clearMessage(lock.id)
-            coordinator.dismissCompleted(lock.id)
-        }
-
         override fun onDeleteClick() {
             viewState.update { it.copy(pendingDeleteLockId = lock.id) }
         }
+    }
+
+    private fun createSnackbar(model: LockModel, view: ViewState): HomeUiState.Snackbar? {
+        val lockId = model.lock.id
+        val phase = model.phase
+        val transientMessage = view.messages[lockId]
+        val (key, message, requiresAcknowledgement) = when {
+            phase is CommandPhase.Completed -> {
+                val (text, tone) = LockTexts.outcome(phase.intent, phase.outcome)
+                Triple("${lockId.value}:${phase.requestId.value}", "${model.lock.displayName}: ${transientMessage ?: text}", tone == HomeUiState.Tone.WARNING)
+            }
+
+            transientMessage != null -> Triple("${lockId.value}:$transientMessage", "${model.lock.displayName}: $transientMessage", false)
+
+            else -> return null
+        }
+        snackbarCache?.let { (cachedKey, cached) -> if (cachedKey == key) return cached }
+        val snackbar = HomeUiState.Snackbar(
+            message = message,
+            requiresAcknowledgement = requiresAcknowledgement,
+            listener = object : HomeUiState.SnackbarListener {
+                override fun onDismissed() {
+                    clearMessage(lockId)
+                    coordinator.dismissCompleted(lockId)
+                }
+            },
+        )
+        snackbarCache = key to snackbar
+        return snackbar
     }
 
     private fun createDeleteConfirmation(model: LockModel): HomeUiState.DeleteConfirmation = HomeUiState.DeleteConfirmation(
