@@ -277,8 +277,9 @@ internal class HomeViewModel(
     }
 
     private fun refresh(lock: RegisteredLock) {
+        if (lock.id in viewState.value.refreshingLockIds) return
+        viewState.update { it.copy(refreshingLockIds = it.refreshingLockIds + lock.id) }
         viewModelScope.launch {
-            viewState.update { it.copy(refreshingLockIds = it.refreshingLockIds + lock.id) }
             try {
                 observe(lock)
             } finally {
