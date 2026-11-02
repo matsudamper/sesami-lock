@@ -3,7 +3,7 @@ package net.matsudamper.sesamilock.ui.component
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -43,7 +43,8 @@ internal fun HoldToActivateButton(
     icon: Painter,
     enabled: Boolean,
     holdMillis: Int,
-    color: Color,
+    containerColor: Color,
+    contentColor: Color,
     minHeight: Dp,
     onActivate: () -> Unit,
     onTapWithoutHold: () -> Unit,
@@ -56,20 +57,20 @@ internal fun HoldToActivateButton(
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         onActivate()
     }
-    val contentColor = if (enabled) color else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-    val borderColor = if (enabled) color else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    val background = if (enabled) containerColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    val foreground = if (enabled) contentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
     val shape = RoundedCornerShape(16.dp)
     Row(
         modifier = modifier
             .heightIn(min = minHeight)
             .clip(shape)
+            .background(background)
             .drawBehind {
                 drawRect(
-                    color = color.copy(alpha = 0.2f),
+                    color = contentColor.copy(alpha = 0.35f),
                     size = Size(width = size.width * progress.value, height = size.height),
                 )
             }
-            .border(1.dp, borderColor, shape)
             .semantics {
                 role = Role.Button
                 if (enabled) {
@@ -111,7 +112,7 @@ internal fun HoldToActivateButton(
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(painter = icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(20.dp))
-        Text(text = text, color = contentColor, style = MaterialTheme.typography.titleMedium)
+        Icon(painter = icon, contentDescription = null, tint = foreground, modifier = Modifier.size(20.dp))
+        Text(text = text, color = foreground, style = MaterialTheme.typography.titleMedium)
     }
 }
