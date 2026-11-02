@@ -20,7 +20,7 @@ JDK 25とAndroid SDKを用意して、以下を実行します。
 | `:sesame:ble` | 公式 SDK による BLE 経路 `SesameBleTransport` |
 | `:sesame:cloud` | Web API による クラウド経路 `SesameCloudTransport` |
 | `:sesame:credential` | Android Keystore（AES-GCM）で暗号化した鍵情報の保存 `EncryptedLockRepository` |
-| `:vendor:sesame-sdk` | 公式 SDK `sesameSdk` のソース固定取り込み（commit `9b1e8a8`） |
+| `:vendor:sesame-sdk` | 公式 SDK `sesameSdk` のソース固定取り込み（commit `9b1e8a8`、最小限のパッチあり） |
 
 `:app` 以外はアプリに依存しないライブラリとして使える。`LockTransport` を実装すれば別の経路も同じ安全制御に載せられる。
 

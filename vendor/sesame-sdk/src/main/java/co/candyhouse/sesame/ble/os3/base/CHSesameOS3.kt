@@ -60,6 +60,7 @@ internal open class CHSesameOS3 : CHBaseDevice(), CHSesameOS3Publish {
         ConcurrentHashMap()
 
     private var semaphore: Semaphore = Semaphore(1)
+    @Volatile private var connectionEpoch: Int = 0 // sesami-lock patch
 
     open fun connect(result: CHResult<CHEmpty>) {
 
@@ -251,6 +252,7 @@ internal open class CHSesameOS3 : CHBaseDevice(), CHSesameOS3Publish {
                         BleBaseType.GattConnectStatusDec(status)
                     }]"
                 )
+                connectionEpoch += 1 // sesami-lock patch
                 gatt.close()
                 (this@CHSesameOS3 as CHDeviceUtil).advertisement = null
                 mBluetoothGatt = null
@@ -348,10 +350,15 @@ internal open class CHSesameOS3 : CHBaseDevice(), CHSesameOS3Publish {
             return
         }
         cmdCallBackMap[payload.itemCode] = System.currentTimeMillis()
+        val epochAtEnqueue = connectionEpoch // sesami-lock patch
         CoroutineScope(IO).launch {
             try {
 //            L.d("hcia", "[acquire] semaphore?.availablePermits():" + semaphore?.availablePermits())
                 semaphore.acquire()
+                if (epochAtEnqueue != connectionEpoch) { // sesami-lock patch: 切断前に積まれたコマンドを再接続後に送らない
+                    semaphore.release()
+                    return@launch
+                }
 
 //            L.d("hcia", "[device] 🀄Command: ==>:" + (payload.itemCode) + " " + isEncryt)
                 val say2ssm = if (isEncryt == DeviceSegmentType.cipher) {
