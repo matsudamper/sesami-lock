@@ -7,6 +7,7 @@ import androidx.compose.runtime.Immutable
 internal data class AddLockUiState(
     val name: String,
     val bleRouteSelected: Boolean,
+    val cloudRouteSelected: Boolean,
     val bleInput: BleInput?,
     val cloudInput: CloudInput?,
     val generalErrorMessage: String?,
@@ -19,6 +20,7 @@ internal data class AddLockUiState(
         val keyText: String,
         val keyError: String?,
         val qrReadingProgressVisible: Boolean,
+        val qrPickButtonEnabled: Boolean,
     )
 
     @Immutable
