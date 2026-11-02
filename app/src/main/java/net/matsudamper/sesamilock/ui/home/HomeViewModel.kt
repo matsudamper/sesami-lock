@@ -241,7 +241,8 @@ internal class HomeViewModel(
 
             else -> return null
         }
-        snackbarCache?.let { (cachedKey, cached) -> if (cachedKey == key) return cached }
+        val cache = snackbarCache
+        if (cache != null && cache.first == key) return cache.second
         val snackbar = HomeUiState.Snackbar(
             message = message,
             requiresAcknowledgement = requiresAcknowledgement,

@@ -36,7 +36,8 @@ internal class KeystoreCipher(private val keyAlias: String) {
     private fun existingKey(): SecretKey? = keyStore().getKey(keyAlias, null) as? SecretKey
 
     private fun getOrCreateKey(): SecretKey {
-        existingKey()?.let { return it }
+        val existing = existingKey()
+        if (existing != null) return existing
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
         generator.init(
             KeyGenParameterSpec.Builder(keyAlias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)

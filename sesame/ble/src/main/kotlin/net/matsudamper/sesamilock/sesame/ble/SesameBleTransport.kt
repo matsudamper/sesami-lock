@@ -63,7 +63,8 @@ public class SesameBleTransport(
     }
 
     public fun unregister(lockId: LockId) {
-        sessions.remove(lockId)?.let { session -> runCatching { session.detach() } }
+        val session = sessions.remove(lockId)
+        if (session != null) runCatching { session.detach() }
     }
 
     public fun disconnectAll() {
