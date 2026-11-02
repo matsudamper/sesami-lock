@@ -167,7 +167,8 @@ public class SesameCloudTransport internal constructor(
             val status = (obj["CHSesame2Status"] as? JsonPrimitive)?.takeIf { it.isString }?.content
             val state = when (status) {
                 "locked" -> MechanicalState.LOCKED
-                "unlocked", "moved" -> MechanicalState.NOT_LOCKED_OR_MOVING
+                "unlocked" -> MechanicalState.OUT_OF_LOCK_RANGE
+                "moved" -> MechanicalState.MOVING
                 else -> return null
             }
             val rawTimestamp = (obj["timestamp"] as? JsonPrimitive)?.takeIf { !it.isString }?.content

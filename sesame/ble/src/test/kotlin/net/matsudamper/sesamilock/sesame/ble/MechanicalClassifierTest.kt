@@ -29,26 +29,26 @@ class MechanicalClassifierTest {
 
     @Test
     fun movingInLockRangeIsNotLocked() {
-        assertEquals(MechanicalState.NOT_LOCKED_OR_MOVING, MechanicalClassifier.classify(reading(isInLockRange = true, isStopped = false), UnlockVerificationPolicy.Disabled))
+        assertEquals(MechanicalState.MOVING, MechanicalClassifier.classify(reading(isInLockRange = true, isStopped = false), UnlockVerificationPolicy.Disabled))
     }
 
     @Test
-    fun outsideLockRangeIsNeverVerifiedUnlockWithoutStrictPolicy() {
+    fun stoppedOutsideLockRangeIsOutOfLockRangeWithoutStrictPolicy() {
         assertEquals(
-            MechanicalState.NOT_LOCKED_OR_MOVING,
+            MechanicalState.OUT_OF_LOCK_RANGE,
             MechanicalClassifier.classify(reading(isInLockRange = false, isStopped = true), UnlockVerificationPolicy.Disabled),
         )
     }
 
     @Test
     fun movingOutsideLockRangeIsNotVerifiedUnlockEvenWithStrictPolicy() {
-        assertEquals(MechanicalState.NOT_LOCKED_OR_MOVING, MechanicalClassifier.classify(reading(isInLockRange = false, isStopped = false), strict))
+        assertEquals(MechanicalState.MOVING, MechanicalClassifier.classify(reading(isInLockRange = false, isStopped = false), strict))
     }
 
     @Test
     fun intermediatePositionIsNotVerifiedUnlock() {
         assertEquals(
-            MechanicalState.NOT_LOCKED_OR_MOVING,
+            MechanicalState.OUT_OF_LOCK_RANGE,
             MechanicalClassifier.classify(reading(isInLockRange = false, isStopped = true, position = 200, unlockPosition = 0), strict),
         )
     }
@@ -64,7 +64,7 @@ class MechanicalClassifierTest {
     @Test
     fun unknownUnlockPositionIsNotVerifiedUnlock() {
         assertEquals(
-            MechanicalState.NOT_LOCKED_OR_MOVING,
+            MechanicalState.OUT_OF_LOCK_RANGE,
             MechanicalClassifier.classify(reading(isInLockRange = false, isStopped = true, unlockPosition = null), strict),
         )
     }

@@ -26,18 +26,18 @@ class LockSnapshotStoreTest {
     fun observationFromOldConnectionDoesNotOverwriteNewer() {
         val store = LockSnapshotStore(LockSnapshot.initial(lockId, LockRoute.BLE, pushesUpdatesWhileConnected = true))
         store.updateConnection(ConnectionState.AUTHENTICATED, connectionGeneration = 2)
-        assertTrue(store.offerObservation(observation(MechanicalState.NOT_LOCKED_OR_MOVING, at = 100, generation = 2)))
+        assertTrue(store.offerObservation(observation(MechanicalState.MOVING, at = 100, generation = 2)))
 
         assertFalse(store.offerObservation(observation(MechanicalState.LOCKED, at = 200, generation = 1)))
 
-        assertEquals(MechanicalState.NOT_LOCKED_OR_MOVING, store.snapshot.value.observation?.state)
+        assertEquals(MechanicalState.MOVING, store.snapshot.value.observation?.state)
     }
 
     @Test
     fun olderObservationOnSameConnectionIsRejected() {
         val store = LockSnapshotStore(LockSnapshot.initial(lockId, LockRoute.CLOUD, pushesUpdatesWhileConnected = false))
         store.updateConnection(ConnectionState.AUTHENTICATED, connectionGeneration = 1)
-        store.offerObservation(observation(MechanicalState.NOT_LOCKED_OR_MOVING, at = 300, generation = 1))
+        store.offerObservation(observation(MechanicalState.MOVING, at = 300, generation = 1))
 
         assertFalse(store.offerObservation(observation(MechanicalState.LOCKED, at = 200, generation = 1)))
     }

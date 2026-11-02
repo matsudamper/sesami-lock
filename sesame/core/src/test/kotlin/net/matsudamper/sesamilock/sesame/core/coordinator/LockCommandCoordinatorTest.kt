@@ -86,7 +86,7 @@ class LockCommandCoordinatorTest {
     fun lockFromNotLockedStateSendsOnlyLockAndVerifiesAfterNewObservation() = runTest {
         val fixture = fixture()
         fixture.ble.connectNow()
-        fixture.ble.observe(MechanicalState.NOT_LOCKED_OR_MOVING)
+        fixture.ble.observe(MechanicalState.MOVING)
         fixture.ble.onDispatch = { fixture.ble.observe(MechanicalState.LOCKED) }
 
         fixture.coordinator.requestLock(bleTarget)
@@ -167,7 +167,7 @@ class LockCommandCoordinatorTest {
     fun lockOutcomeIsObservedEvenWhenAcknowledgementIsLost() = runTest {
         val fixture = fixture()
         fixture.ble.connectNow()
-        fixture.ble.observe(MechanicalState.NOT_LOCKED_OR_MOVING)
+        fixture.ble.observe(MechanicalState.MOVING)
         fixture.ble.dispatchResult = DispatchResult.OutcomeUnknown(TransportError.TIMEOUT)
         fixture.ble.onDispatch = { fixture.ble.observe(MechanicalState.LOCKED) }
 
@@ -189,9 +189,9 @@ class LockCommandCoordinatorTest {
     }
 
     @Test
-    fun notLockedOrMovingIsNotTreatedAsVerifiedUnlock() = runTest {
+    fun movingIsNotTreatedAsCompletedUnlock() = runTest {
         val fixture = fixture()
-        fixture.ble.onDispatch = { fixture.ble.observe(MechanicalState.NOT_LOCKED_OR_MOVING) }
+        fixture.ble.onDispatch = { fixture.ble.observe(MechanicalState.MOVING) }
         fixture.startedUnlock()
 
         advanceTimeBy(30.seconds)
@@ -292,13 +292,13 @@ class LockCommandCoordinatorTest {
     fun lockThatIsUndoneDuringSettleIsNotVerified() = runTest {
         val fixture = fixture()
         fixture.ble.connectNow()
-        fixture.ble.observe(MechanicalState.NOT_LOCKED_OR_MOVING)
+        fixture.ble.observe(MechanicalState.MOVING)
         fixture.ble.onDispatch = { fixture.ble.observe(MechanicalState.LOCKED) }
 
         fixture.coordinator.requestLock(bleTarget)
         runCurrent()
         advanceTimeBy(500)
-        fixture.ble.observe(MechanicalState.NOT_LOCKED_OR_MOVING)
+        fixture.ble.observe(MechanicalState.MOVING)
         advanceTimeBy(20.seconds)
 
         assertIs<CommandOutcome.SentButNotVerified>(fixture.completedOutcome())
@@ -308,13 +308,13 @@ class LockCommandCoordinatorTest {
     fun settleRestartsWhenStateFlickersDuringSettle() = runTest {
         val fixture = fixture()
         fixture.ble.connectNow()
-        fixture.ble.observe(MechanicalState.NOT_LOCKED_OR_MOVING)
+        fixture.ble.observe(MechanicalState.MOVING)
         fixture.ble.onDispatch = { fixture.ble.observe(MechanicalState.LOCKED) }
 
         fixture.coordinator.requestLock(bleTarget)
         runCurrent()
         advanceTimeBy(500)
-        fixture.ble.observe(MechanicalState.NOT_LOCKED_OR_MOVING)
+        fixture.ble.observe(MechanicalState.MOVING)
         advanceTimeBy(900)
         fixture.ble.observe(MechanicalState.LOCKED)
         advanceTimeBy(200)
@@ -384,5 +384,19 @@ class LockCommandCoordinatorTest {
 
         assertEquals(listOf(), fixture.ble.dispatched)
         assertEquals(CommandOutcome.NotSent(AbortReason.CANCELLED, null), fixture.completedOutcome())
+    }
+
+    @Test
+    fun unlockIsCompletedWhenStoppedOutsideLockRange() = runTest {
+        val fixture = fixture()
+        fixture.ble.onDispatch = { fixture.ble.observe(MechanicalState.MOVING) }
+        fixture.startedUnlock()
+        runCurrent()
+        advanceTimeBy(800)
+        fixture.ble.observe(MechanicalState.OUT_OF_LOCK_RANGE)
+        advanceTimeBy(2.seconds)
+
+        assertEquals(listOf(LockIntent.UNLOCK), fixture.ble.dispatched)
+        assertEquals(CommandOutcome.Verified, fixture.completedOutcome())
     }
 }

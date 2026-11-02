@@ -3,7 +3,8 @@ package net.matsudamper.sesamilock.sesame.core.model
 public enum class MechanicalState {
     LOCKED,
     UNLOCKED_VERIFIED,
-    NOT_LOCKED_OR_MOVING,
+    OUT_OF_LOCK_RANGE,
+    MOVING,
 }
 
 public enum class ConnectionState {

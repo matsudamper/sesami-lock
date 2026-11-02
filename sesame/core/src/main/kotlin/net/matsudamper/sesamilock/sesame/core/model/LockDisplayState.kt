@@ -5,7 +5,8 @@ import kotlin.time.Duration
 public enum class LockDisplayState {
     LOCKED_VERIFIED,
     UNLOCKED_VERIFIED,
-    NOT_LOCKED_OR_MOVING,
+    OUT_OF_LOCK_RANGE,
+    MOVING,
     STALE,
     UNKNOWN,
     DISCONNECTED,
@@ -28,7 +29,8 @@ public fun LockSnapshot.toDisplayState(nowElapsedMillis: Long, freshness: Durati
             else -> when (current.state) {
                 MechanicalState.LOCKED -> LockDisplayState.LOCKED_VERIFIED
                 MechanicalState.UNLOCKED_VERIFIED -> LockDisplayState.UNLOCKED_VERIFIED
-                MechanicalState.NOT_LOCKED_OR_MOVING -> LockDisplayState.NOT_LOCKED_OR_MOVING
+                MechanicalState.OUT_OF_LOCK_RANGE -> LockDisplayState.OUT_OF_LOCK_RANGE
+                MechanicalState.MOVING -> LockDisplayState.MOVING
             }
         }
     }

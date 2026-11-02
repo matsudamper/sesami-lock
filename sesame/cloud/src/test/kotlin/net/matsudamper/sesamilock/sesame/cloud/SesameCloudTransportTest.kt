@@ -100,8 +100,8 @@ class SesameCloudTransportTest {
 
     @Test
     fun cloudUnlockedIsNeverVerifiedUnlock() {
-        assertEquals(MechanicalState.NOT_LOCKED_OR_MOVING, SesameCloudTransport.parseShadow("""{"CHSesame2Status":"unlocked"}""")?.state)
-        assertEquals(MechanicalState.NOT_LOCKED_OR_MOVING, SesameCloudTransport.parseShadow("""{"CHSesame2Status":"moved"}""")?.state)
+        assertEquals(MechanicalState.OUT_OF_LOCK_RANGE, SesameCloudTransport.parseShadow("""{"CHSesame2Status":"unlocked"}""")?.state)
+        assertEquals(MechanicalState.MOVING, SesameCloudTransport.parseShadow("""{"CHSesame2Status":"moved"}""")?.state)
         assertEquals(MechanicalState.LOCKED, SesameCloudTransport.parseShadow("""{"CHSesame2Status":"locked","timestamp":1598523693}""")?.state)
         assertEquals(null, SesameCloudTransport.parseShadow("""{"CHSesame2Status":"toggle"}""")?.state)
     }

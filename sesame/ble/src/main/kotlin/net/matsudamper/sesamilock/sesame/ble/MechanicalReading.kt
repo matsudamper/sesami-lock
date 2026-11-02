@@ -20,17 +20,17 @@ internal object MechanicalClassifier {
      */
     fun classify(reading: MechanicalReading, policy: UnlockVerificationPolicy): MechanicalState {
         val settled = !reading.isMoving && reading.isStopped != false
-        if (!settled) return MechanicalState.NOT_LOCKED_OR_MOVING
+        if (!settled) return MechanicalState.MOVING
         if (reading.isInLockRange) return MechanicalState.LOCKED
         return when (policy) {
-            UnlockVerificationPolicy.Disabled -> MechanicalState.NOT_LOCKED_OR_MOVING
+            UnlockVerificationPolicy.Disabled -> MechanicalState.OUT_OF_LOCK_RANGE
 
             is UnlockVerificationPolicy.StoppedNearUnlockPosition -> {
                 val unlockPosition = reading.unlockPosition
                 val verified = reading.isInUnlockRange &&
                     unlockPosition != null &&
                     abs(reading.position - unlockPosition) <= policy.maxPositionDeviation
-                if (verified) MechanicalState.UNLOCKED_VERIFIED else MechanicalState.NOT_LOCKED_OR_MOVING
+                if (verified) MechanicalState.UNLOCKED_VERIFIED else MechanicalState.OUT_OF_LOCK_RANGE
             }
         }
     }

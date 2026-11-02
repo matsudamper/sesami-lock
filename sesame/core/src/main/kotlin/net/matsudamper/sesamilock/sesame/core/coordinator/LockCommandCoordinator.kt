@@ -186,13 +186,13 @@ public class LockCommandCoordinator(
         sentConnectionGeneration: Long,
     ): Boolean {
         val lockId = request.target.lockId
-        val expectedState = when (request.intent) {
-            LockIntent.LOCK -> MechanicalState.LOCKED
-            LockIntent.UNLOCK -> MechanicalState.UNLOCKED_VERIFIED
+        val expectedStates = when (request.intent) {
+            LockIntent.LOCK -> setOf(MechanicalState.LOCKED)
+            LockIntent.UNLOCK -> setOf(MechanicalState.UNLOCKED_VERIFIED, MechanicalState.OUT_OF_LOCK_RANGE)
         }
         val snapshots = transport.snapshot(lockId)
         val matches = { snapshot: LockSnapshot ->
-            isExpectedState(snapshot, expectedState, sentAtElapsedMillis, sentConnectionGeneration)
+            isExpectedState(snapshot, expectedStates, sentAtElapsedMillis, sentConnectionGeneration)
         }
         return withTimeoutOrNull(config.verificationTimeout) {
             coroutineScope {
@@ -232,13 +232,13 @@ public class LockCommandCoordinator(
 
     private fun isExpectedState(
         snapshot: LockSnapshot,
-        expectedState: MechanicalState,
+        expectedStates: Set<MechanicalState>,
         sentAtElapsedMillis: Long,
         sentConnectionGeneration: Long,
     ): Boolean {
         val observation = snapshot.observation ?: return false
         if (snapshot.connection != ConnectionState.AUTHENTICATED) return false
-        if (observation.state != expectedState) return false
+        if (observation.state !in expectedStates) return false
         if (observation.connectionGeneration < sentConnectionGeneration) return false
         val observedAfterSend = observation.observedAtElapsedMillis > sentAtElapsedMillis
         return if (snapshot.pushesUpdatesWhileConnected) {

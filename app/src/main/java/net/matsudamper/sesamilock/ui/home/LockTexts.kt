@@ -27,7 +27,8 @@ internal object LockTexts {
     fun displayState(state: LockDisplayState, previous: MechanicalState?): String = when (state) {
         LockDisplayState.LOCKED_VERIFIED -> "施錠（確認済み）"
         LockDisplayState.UNLOCKED_VERIFIED -> "解錠（確認済み）"
-        LockDisplayState.NOT_LOCKED_OR_MOVING -> "施錠範囲外 / 動作中"
+        LockDisplayState.OUT_OF_LOCK_RANGE -> "解錠（施錠範囲外で停止）"
+        LockDisplayState.MOVING -> "動作中"
         LockDisplayState.STALE -> "状態不明（以前の観測: ${previous?.let(::mechanical) ?: "なし"}）"
         LockDisplayState.UNKNOWN -> "状態不明"
         LockDisplayState.DISCONNECTED -> "接続なし"
@@ -38,7 +39,9 @@ internal object LockTexts {
 
         LockDisplayState.UNLOCKED_VERIFIED -> HomeUiState.Tone.UNLOCKED
 
-        LockDisplayState.NOT_LOCKED_OR_MOVING -> HomeUiState.Tone.UNLOCKED
+        LockDisplayState.OUT_OF_LOCK_RANGE -> HomeUiState.Tone.UNLOCKED
+
+        LockDisplayState.MOVING -> HomeUiState.Tone.NEUTRAL
 
         LockDisplayState.STALE,
         LockDisplayState.UNKNOWN,
@@ -60,7 +63,7 @@ internal object LockTexts {
     fun outcome(intent: LockIntent, outcome: CommandOutcome): Pair<String, HomeUiState.Tone> = when (outcome) {
         CommandOutcome.Verified -> when (intent) {
             LockIntent.LOCK -> "施錠しました（確認済み）" to HomeUiState.Tone.LOCKED
-            LockIntent.UNLOCK -> "解錠しました（確認済み）" to HomeUiState.Tone.UNLOCKED
+            LockIntent.UNLOCK -> "解錠しました（施錠範囲外で停止を確認）" to HomeUiState.Tone.UNLOCKED
         }
 
         is CommandOutcome.SentButNotVerified -> when (intent) {
@@ -82,7 +85,8 @@ internal object LockTexts {
     fun mechanical(state: MechanicalState): String = when (state) {
         MechanicalState.LOCKED -> "施錠"
         MechanicalState.UNLOCKED_VERIFIED -> "解錠"
-        MechanicalState.NOT_LOCKED_OR_MOVING -> "施錠範囲外"
+        MechanicalState.OUT_OF_LOCK_RANGE -> "解錠（施錠範囲外）"
+        MechanicalState.MOVING -> "動作中"
     }
 
     fun error(error: TransportError): String = when (error) {
