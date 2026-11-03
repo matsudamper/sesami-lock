@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.Locale
+import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -154,7 +155,7 @@ internal class AddLockViewModel(
         viewModelScope.launch {
             when (repository.add(lock)) {
                 AddLockResult.ADDED -> form.update { it.clearedSecrets().copy(saving = false, closeRequested = true) }
-                AddLockResult.ALREADY_REGISTERED -> form.update { it.copy(saving = false, error = FormError(FormField.GENERAL, "この SESAME は登録済みです。既存の鍵は変更していません")) }
+                AddLockResult.ALREADY_REGISTERED -> form.update { it.copy(saving = false, error = FormError(FormField.GENERAL, "この SESAME は同じ経路で登録済みです。既存の鍵は変更していません")) }
                 AddLockResult.NOT_READY -> form.update { it.copy(saving = false, error = FormError(FormField.GENERAL, "保存領域を読み込めていません")) }
             }
         }
@@ -179,7 +180,7 @@ internal class AddLockViewModel(
         is KeyImportResult.Failure -> Parsed.Error(FormError(FormField.KEY, importErrorMessage(result.error)))
 
         is KeyImportResult.Success -> {
-            val id = LockId.fromDeviceUuid(result.credential.deviceUuid)
+            val id = LockId.of(result.credential.deviceUuid, LockRoute.BLE)
             if (id == null) {
                 Parsed.Error(FormError(FormField.KEY, importErrorMessage(KeyImportError.INVALID_UUID)))
             } else {
@@ -190,14 +191,14 @@ internal class AddLockViewModel(
     }
 
     private fun parseCloud(form: Form): Parsed {
-        val id = LockId.fromDeviceUuid(form.deviceUuid.trim())
+        val id = LockId.of(form.deviceUuid.trim(), LockRoute.CLOUD)
             ?: return Parsed.Error(FormError(FormField.DEVICE_UUID, "UUID の形式が正しくありません"))
         val apiKey = form.apiKey.trim()
         if (apiKey.isEmpty()) return Parsed.Error(FormError(FormField.API_KEY, "API キーを入力してください"))
         val secret = form.secretKey.trim().lowercase(Locale.ROOT)
         if (!secretKeyPattern.matches(secret)) return Parsed.Error(FormError(FormField.SECRET_KEY, "32 桁の 16 進数で入力してください"))
         val credential = LockCredential.Cloud(
-            deviceUuid = id.value,
+            deviceUuid = UUID.fromString(form.deviceUuid.trim()).toString().uppercase(Locale.ROOT),
             model = form.cloudModel,
             apiKey = apiKey,
             secretKeyHex = secret,
