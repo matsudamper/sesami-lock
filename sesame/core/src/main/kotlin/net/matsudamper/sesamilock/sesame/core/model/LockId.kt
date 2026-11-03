@@ -6,6 +6,8 @@ import java.util.UUID
 
 @JvmInline
 public value class LockId private constructor(public val value: String) {
+    public val deviceUuid: String get() = value.substringAfter(SEPARATOR)
+
     public fun shortHash(): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
         return digest.take(SHORT_HASH_BYTES).joinToString("") { "%02x".format(it) }

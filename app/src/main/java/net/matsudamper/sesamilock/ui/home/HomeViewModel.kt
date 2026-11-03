@@ -138,7 +138,10 @@ internal class HomeViewModel(
                 is LocksModel.Loaded -> if (models.isEmpty()) {
                     HomeUiState.Content.Empty
                 } else {
-                    HomeUiState.Content.Locks(models.map { createCard(it, now, it.lock.id in rejectedLockIds) })
+                    val busyDeviceUuids = models.filter { it.phase is CommandPhase.InProgress }.map { it.lock.id.deviceUuid }.toSet()
+                    HomeUiState.Content.Locks(
+                        models.map { createCard(it, now, it.lock.id in rejectedLockIds, it.lock.id.deviceUuid in busyDeviceUuids) },
+                    )
                 }
             },
             permissionBanner = if (needsBlePermission) {
@@ -152,7 +155,7 @@ internal class HomeViewModel(
         )
     }
 
-    private fun createCard(model: LockModel, now: Long, registrationRejected: Boolean): HomeUiState.LockCard {
+    private fun createCard(model: LockModel, now: Long, registrationRejected: Boolean, deviceBusy: Boolean): HomeUiState.LockCard {
         val lock = model.lock
         val displayState = model.snapshot.toDisplayState(now, STATE_FRESHNESS)
         val observation = model.snapshot.observation
@@ -168,7 +171,7 @@ internal class HomeViewModel(
             else -> "$observedAgo に確認 ・ ${LockTexts.route(lock.route)}"
         }
         val inProgress = phase as? CommandPhase.InProgress
-        val operable = inProgress == null && !registrationRejected
+        val operable = !deviceBusy && !registrationRejected
         return HomeUiState.LockCard(
             name = lock.displayName,
             detail = detail,

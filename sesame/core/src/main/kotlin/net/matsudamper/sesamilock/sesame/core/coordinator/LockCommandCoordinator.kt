@@ -70,7 +70,7 @@ public class LockCommandCoordinator(
     private fun request(target: LockTarget, intent: LockIntent): StartResult {
         val request = synchronized(guard) {
             if (target.route !in transportsByRoute) return StartResult.Rejected(RejectReason.ROUTE_UNAVAILABLE)
-            if (target.lockId in activeRequests) return StartResult.Rejected(RejectReason.OPERATION_IN_PROGRESS)
+            if (activeRequests.keys.any { it.deviceUuid == target.lockId.deviceUuid }) return StartResult.Rejected(RejectReason.OPERATION_IN_PROGRESS)
             val request = ActiveRequest(
                 requestId = requestIdFactory.create(),
                 target = target,

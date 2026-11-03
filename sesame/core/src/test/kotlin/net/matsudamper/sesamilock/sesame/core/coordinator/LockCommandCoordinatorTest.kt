@@ -149,6 +149,20 @@ class LockCommandCoordinatorTest {
     }
 
     @Test
+    fun sameDeviceOnOtherRouteIsRejectedWhileUnlockIsPending() = runTest {
+        val fixture = fixture()
+        fixture.ble.connectionGate = CompletableDeferred()
+        fixture.startedUnlock()
+        runCurrent()
+        val sameDeviceCloudTarget = LockTarget(requireNotNull(LockId.of(lockId.deviceUuid, LockRoute.CLOUD)), LockRoute.CLOUD)
+
+        assertEquals(StartResult.Rejected(RejectReason.OPERATION_IN_PROGRESS), fixture.coordinator.requestLock(sameDeviceCloudTarget))
+        advanceTimeBy(30.seconds)
+
+        assertEquals(listOf(), fixture.cloud.dispatched)
+    }
+
+    @Test
     fun lostAcknowledgementIsNotRetried() = runTest {
         val fixture = fixture()
         fixture.ble.dispatchResult = DispatchResult.OutcomeUnknown(TransportError.TIMEOUT)
