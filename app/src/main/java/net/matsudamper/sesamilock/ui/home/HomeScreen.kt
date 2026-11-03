@@ -38,6 +38,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -99,7 +100,13 @@ internal fun HomeScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
+        PullToRefreshBox(
+            isRefreshing = uiState.pullRefreshIndicatorVisible,
+            onRefresh = { uiState.listener.onPullToRefresh() },
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize(),
+        ) {
             when (val content = uiState.content) {
                 HomeUiState.Content.Loading -> Box(modifier = Modifier.fillMaxSize()) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -264,7 +271,6 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
                     Text(card.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 LockCardMenu(
-                    onRefreshClick = { card.listener.onRefreshClick() },
                     onEditClick = { card.listener.onEditClick() },
                     onDeleteClick = { card.listener.onDeleteClick() },
                 )
@@ -347,21 +353,13 @@ private fun StatusBadge(icon: HomeUiState.StatusIcon, tone: HomeUiState.Tone, pr
 }
 
 @Composable
-private fun LockCardMenu(onRefreshClick: () -> Unit, onEditClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun LockCardMenu(onEditClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         IconButton(onClick = { expanded = true }) {
             Icon(painter = painterResource(R.drawable.ic_more_vert), contentDescription = "その他")
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("状態を更新") },
-                leadingIcon = { Icon(painter = painterResource(R.drawable.ic_refresh), contentDescription = null) },
-                onClick = {
-                    expanded = false
-                    onRefreshClick()
-                },
-            )
             DropdownMenuItem(
                 text = { Text("編集") },
                 onClick = {
