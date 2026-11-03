@@ -7,9 +7,12 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -47,11 +50,13 @@ internal class HomeViewModel(
     private val viewState = MutableStateFlow(
         ViewState(
             pendingDeleteLockId = null,
-            pendingRename = null,
             blePermissionsGranted = blePermissions.isGranted(),
             messages = mapOf(),
         ),
     )
+
+    private val mutableEditRequests = MutableSharedFlow<LockId>(extraBufferCapacity = 1)
+    val editRequests: SharedFlow<LockId> = mutableEditRequests.asSharedFlow()
 
     private var snackbarCache: Pair<String, HomeUiState.Snackbar>? = null
     private val cardListeners = ConcurrentHashMap<LockId, Pair<RegisteredLock, HomeUiState.LockCardListener>>()
@@ -94,24 +99,6 @@ internal class HomeViewModel(
     private val unrecoverableListener = object : HomeUiState.UnrecoverableListener {
         override fun onDeleteAllClick() {
             viewModelScope.launch { repository.deleteAll() }
-        }
-    }
-
-    private val renameDialogListener = object : HomeUiState.RenameDialogListener {
-        override fun onNameChange(name: String) {
-            viewState.update { state -> state.copy(pendingRename = state.pendingRename?.copy(name = name)) }
-        }
-
-        override fun onConfirmClick() {
-            val rename = viewState.value.pendingRename ?: return
-            val name = rename.name.trim()
-            if (name.isEmpty()) return
-            viewState.update { it.copy(pendingRename = null) }
-            viewModelScope.launch { repository.rename(rename.lockId, name) }
-        }
-
-        override fun onCancel() {
-            viewState.update { it.copy(pendingRename = null) }
         }
     }
 
@@ -161,13 +148,6 @@ internal class HomeViewModel(
                 null
             },
             deleteConfirmation = view.pendingDeleteLockId?.let { id -> models.firstOrNull { it.lock.id == id } }?.let(::createDeleteConfirmation),
-            renameDialog = view.pendingRename?.let { rename ->
-                HomeUiState.RenameDialog(
-                    name = rename.name,
-                    confirmButtonEnabled = rename.name.isNotBlank(),
-                    listener = renameDialogListener,
-                )
-            },
             snackbar = models.firstNotNullOfOrNull { createSnackbar(it, view) },
             listener = listener,
         )
@@ -248,8 +228,8 @@ internal class HomeViewModel(
             refresh(lock)
         }
 
-        override fun onRenameClick() {
-            viewState.update { it.copy(pendingRename = PendingRename(lockId = lock.id, name = lock.displayName)) }
+        override fun onEditClick() {
+            mutableEditRequests.tryEmit(lock.id)
         }
 
         override fun onDeleteClick() {
@@ -339,14 +319,8 @@ internal class HomeViewModel(
 
     private data class ViewState(
         val pendingDeleteLockId: LockId?,
-        val pendingRename: PendingRename?,
         val blePermissionsGranted: Boolean,
         val messages: Map<LockId, String>,
-    )
-
-    private data class PendingRename(
-        val lockId: LockId,
-        val name: String,
     )
 
     private data class LockModel(
