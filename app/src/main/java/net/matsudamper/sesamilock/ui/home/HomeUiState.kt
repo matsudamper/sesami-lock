@@ -9,6 +9,7 @@ internal data class HomeUiState(
     val deleteConfirmation: DeleteConfirmation?,
     val renameDialog: RenameDialog?,
     val snackbar: Snackbar?,
+    val pullRefreshIndicatorVisible: Boolean,
     val listener: Listener,
 ) {
     @Immutable
@@ -78,6 +79,8 @@ internal data class HomeUiState(
 
     interface Listener {
         fun onResume()
+
+        fun onPullToRefresh()
     }
 
     interface UnrecoverableListener {
@@ -92,8 +95,6 @@ internal data class HomeUiState(
         fun onUnlockLongPress()
 
         fun onUnlockTap()
-
-        fun onRefreshClick()
 
         fun onRenameClick()
 
