@@ -5,7 +5,6 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,7 +22,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,7 +31,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -60,7 +57,7 @@ import net.matsudamper.sesamilock.R
 import net.matsudamper.sesamilock.ui.component.HoldToActivateButton
 import net.matsudamper.sesamilock.ui.theme.lockStatusColors
 
-private const val UnlockHoldMillis = 600
+private const val ActionHoldMillis = 600
 private val actionButtonHeight = 56.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,6 +66,7 @@ internal fun HomeScreen(
     uiState: HomeUiState,
     onAddLockClick: () -> Unit,
     onDiagnosticsClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LifecycleResumeEffect(uiState.listener) {
@@ -95,7 +93,7 @@ internal fun HomeScreen(
                     IconButton(onClick = onAddLockClick) {
                         Icon(painter = painterResource(R.drawable.ic_add), contentDescription = "鍵を追加")
                     }
-                    OverflowMenu(onDiagnosticsClick = onDiagnosticsClick)
+                    OverflowMenu(onDiagnosticsClick = onDiagnosticsClick, onSettingsClick = onSettingsClick)
                 },
             )
         },
@@ -128,7 +126,7 @@ internal fun HomeScreen(
 }
 
 @Composable
-private fun OverflowMenu(onDiagnosticsClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun OverflowMenu(onDiagnosticsClick: () -> Unit, onSettingsClick: () -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         IconButton(onClick = { expanded = true }) {
@@ -140,6 +138,13 @@ private fun OverflowMenu(onDiagnosticsClick: () -> Unit, modifier: Modifier = Mo
                 onClick = {
                     expanded = false
                     onDiagnosticsClick()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("設定") },
+                onClick = {
+                    expanded = false
+                    onSettingsClick()
                 },
             )
         }
@@ -275,28 +280,25 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(
-                    onClick = { card.listener.onLockClick() },
+                HoldToActivateButton(
+                    text = "施錠",
+                    icon = painterResource(R.drawable.ic_lock),
                     enabled = card.lockButtonEnabled,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = statusColors.locked),
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = if (card.lockButtonEnabled) statusColors.locked else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = actionButtonHeight),
-                ) {
-                    Icon(painter = painterResource(R.drawable.ic_lock), contentDescription = null, modifier = Modifier.size(20.dp))
-                    Text("施錠", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 8.dp))
-                }
+                    holdMillis = ActionHoldMillis,
+                    containerColor = statusColors.lockedContainer,
+                    contentColor = statusColors.locked,
+                    minHeight = actionButtonHeight,
+                    onActivate = card.listener::onLockLongPress,
+                    onTapWithoutHold = card.listener::onLockTap,
+                    modifier = Modifier.weight(1f),
+                )
                 HoldToActivateButton(
                     text = "解錠",
                     icon = painterResource(R.drawable.ic_lock_open),
                     enabled = card.unlockButtonEnabled,
-                    holdMillis = UnlockHoldMillis,
-                    color = statusColors.unlocked,
+                    holdMillis = ActionHoldMillis,
+                    containerColor = statusColors.unlockedContainer,
+                    contentColor = statusColors.unlocked,
                     minHeight = actionButtonHeight,
                     onActivate = card.listener::onUnlockLongPress,
                     onTapWithoutHold = card.listener::onUnlockTap,
