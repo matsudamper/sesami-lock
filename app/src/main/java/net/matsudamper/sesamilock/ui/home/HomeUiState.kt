@@ -7,6 +7,7 @@ internal data class HomeUiState(
     val content: Content,
     val permissionBanner: PermissionBanner?,
     val deleteConfirmation: DeleteConfirmation?,
+    val renameDialog: RenameDialog?,
     val snackbar: Snackbar?,
     val listener: Listener,
 ) {
@@ -68,6 +69,13 @@ internal data class HomeUiState(
         val listener: DeleteConfirmationListener,
     )
 
+    @Immutable
+    data class RenameDialog(
+        val name: String,
+        val confirmButtonEnabled: Boolean,
+        val listener: RenameDialogListener,
+    )
+
     interface Listener {
         fun onResume()
     }
@@ -87,6 +95,8 @@ internal data class HomeUiState(
 
         fun onRefreshClick()
 
+        fun onRenameClick()
+
         fun onDeleteClick()
     }
 
@@ -96,6 +106,14 @@ internal data class HomeUiState(
 
     interface PermissionListener {
         fun onPermissionResult()
+    }
+
+    interface RenameDialogListener {
+        fun onNameChange(name: String)
+
+        fun onConfirmClick()
+
+        fun onCancel()
     }
 
     interface DeleteConfirmationListener {
