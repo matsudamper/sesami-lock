@@ -99,7 +99,7 @@ private fun FormContent(form: EditLockUiState.Content.Form, listener: EditLockUi
             modifier = Modifier.fillMaxWidth(),
         )
         ReadOnlyItem(label = "通信経路", value = form.routeLabel)
-        ReadOnlyItem(label = "UUID", value = form.deviceUuid)
+        form.readOnlyDeviceUuid?.let { ReadOnlyItem(label = "UUID", value = it) }
         form.cloudInput?.let { CloudInputContent(it, listener) }
         form.generalErrorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
@@ -126,6 +126,15 @@ private fun ReadOnlyItem(label: String, value: String, modifier: Modifier = Modi
 private fun CloudInputContent(input: EditLockUiState.CloudInput, listener: EditLockUiState.Listener, modifier: Modifier = Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ModelSelector(input = input)
+        OutlinedTextField(
+            value = input.deviceUuid,
+            onValueChange = { listener.onDeviceUuidChange(it) },
+            label = { Text("UUID") },
+            singleLine = true,
+            isError = input.deviceUuidError != null,
+            supportingText = input.deviceUuidError?.let { { Text(it) } },
+            modifier = Modifier.fillMaxWidth(),
+        )
         SecretTextField(
             value = input.apiKey,
             onValueChange = { listener.onApiKeyChange(it) },

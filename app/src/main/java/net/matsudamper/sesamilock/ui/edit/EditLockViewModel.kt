@@ -21,6 +21,7 @@ import net.matsudamper.sesamilock.sesame.core.model.RegisteredLock
 import net.matsudamper.sesamilock.sesame.core.model.SesameModel
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.sesame.credential.LockRepositoryState
+import net.matsudamper.sesamilock.sesame.credential.UpdateLockResult
 
 internal class EditLockViewModel(
     private val repository: EncryptedLockRepository,
@@ -32,6 +33,10 @@ internal class EditLockViewModel(
     private val listener = object : EditLockUiState.Listener {
         override fun onNameChange(value: String) {
             updateForm { it.copy(name = value, error = null) }
+        }
+
+        override fun onDeviceUuidChange(value: String) {
+            updateForm { it.copy(deviceUuid = value, error = null) }
         }
 
         override fun onApiKeyChange(value: String) {
@@ -83,12 +88,11 @@ internal class EditLockViewModel(
                 LockRoute.BLE -> "Bluetooth"
                 LockRoute.CLOUD -> "クラウド"
             },
-            deviceUuid = when (credential) {
-                is LockCredential.Ble -> credential.deviceUuid
-                is LockCredential.Cloud -> credential.deviceUuid
-            },
+            readOnlyDeviceUuid = (credential as? LockCredential.Ble)?.deviceUuid,
             cloudInput = if (credential is LockCredential.Cloud) {
                 EditLockUiState.CloudInput(
+                    deviceUuid = form.deviceUuid,
+                    deviceUuidError = form.error?.messageFor(FormField.DEVICE_UUID),
                     apiKey = form.apiKey,
                     apiKeyError = form.error?.messageFor(FormField.API_KEY),
                     secretKey = form.secretKey,
@@ -118,21 +122,32 @@ internal class EditLockViewModel(
         if (form.saving) return
         val name = form.name.trim()
         if (name.isEmpty()) return showError(FormError(FormField.NAME, "表示名を入力してください"))
-        val credential = when (val original = form.original.credential) {
-            is LockCredential.Ble -> original
-            is LockCredential.Cloud -> editedCloudCredential(original, form) ?: return
+        val edited = when (val original = form.original.credential) {
+            is LockCredential.Ble -> form.original.id to original
+            is LockCredential.Cloud -> editedCloud(original, form) ?: return
         }
+        val (newId, credential) = edited
         if (coordinator.phase(lockId).value is CommandPhase.InProgress) {
             return showError(FormError(FormField.GENERAL, "施錠・解錠の操作中は保存できません。操作が終わってから保存してください"))
         }
         updateForm { it.copy(saving = true, error = null) }
         viewModelScope.launch {
-            repository.update(RegisteredLock(id = form.original.id, displayName = name, credential = credential))
-            state.value = State.Closed
+            val result = repository.update(form.original.id, RegisteredLock(id = newId, displayName = name, credential = credential))
+            when (result) {
+                UpdateLockResult.UPDATED -> state.value = State.Closed
+                UpdateLockResult.ALREADY_REGISTERED -> showSaveFailure(FormError(FormField.DEVICE_UUID, "この UUID の鍵はすでに登録されています"))
+                UpdateLockResult.NOT_FOUND -> showSaveFailure(FormError(FormField.GENERAL, "この鍵は削除されています"))
+                UpdateLockResult.NOT_READY -> showSaveFailure(FormError(FormField.GENERAL, "保存領域を読み込めていません"))
+            }
         }
     }
 
-    private fun editedCloudCredential(original: LockCredential.Cloud, form: Form): LockCredential.Cloud? {
+    private fun editedCloud(original: LockCredential.Cloud, form: Form): Pair<LockId, LockCredential.Cloud>? {
+        val id = LockId.fromDeviceUuid(form.deviceUuid.trim())
+        if (id == null) {
+            showError(FormError(FormField.DEVICE_UUID, "UUID の形式が正しくありません"))
+            return null
+        }
         val apiKey = form.apiKey.trim()
         if (apiKey.isEmpty()) {
             showError(FormError(FormField.API_KEY, "API キーを入力してください"))
@@ -143,12 +158,20 @@ internal class EditLockViewModel(
             showError(FormError(FormField.SECRET_KEY, "32 桁の 16 進数で入力してください"))
             return null
         }
-        val unchanged = apiKey == original.apiKey && secret == original.secretKeyHex && form.cloudModel == original.model
-        return if (unchanged) {
+        val unchanged = id.value == original.deviceUuid &&
+            apiKey == original.apiKey &&
+            secret == original.secretKeyHex &&
+            form.cloudModel == original.model
+        val credential = if (unchanged) {
             original
         } else {
-            LockCredential.Cloud(deviceUuid = original.deviceUuid, model = form.cloudModel, apiKey = apiKey, secretKeyHex = secret)
+            LockCredential.Cloud(deviceUuid = id.value, model = form.cloudModel, apiKey = apiKey, secretKeyHex = secret)
         }
+        return id to credential
+    }
+
+    private fun showSaveFailure(error: FormError) {
+        updateForm { it.copy(saving = false, error = error) }
     }
 
     private fun showError(error: FormError) {
@@ -169,6 +192,7 @@ internal class EditLockViewModel(
 
     private enum class FormField {
         NAME,
+        DEVICE_UUID,
         API_KEY,
         SECRET_KEY,
         GENERAL,
@@ -181,6 +205,7 @@ internal class EditLockViewModel(
     private data class Form(
         val original: RegisteredLock,
         val name: String,
+        val deviceUuid: String,
         val apiKey: String,
         val secretKey: String,
         val cloudModel: SesameModel,
@@ -195,6 +220,7 @@ internal class EditLockViewModel(
                 return Form(
                     original = lock,
                     name = lock.displayName,
+                    deviceUuid = cloud?.deviceUuid.orEmpty(),
                     apiKey = cloud?.apiKey.orEmpty(),
                     secretKey = cloud?.secretKeyHex.orEmpty(),
                     cloudModel = lock.model,

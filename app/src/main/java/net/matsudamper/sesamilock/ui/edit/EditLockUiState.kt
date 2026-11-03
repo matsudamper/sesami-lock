@@ -16,7 +16,7 @@ internal data class EditLockUiState(
             val name: String,
             val nameError: String?,
             val routeLabel: String,
-            val deviceUuid: String,
+            val readOnlyDeviceUuid: String?,
             val cloudInput: CloudInput?,
             val generalErrorMessage: String?,
             val saveButtonEnabled: Boolean,
@@ -25,6 +25,8 @@ internal data class EditLockUiState(
 
     @Immutable
     data class CloudInput(
+        val deviceUuid: String,
+        val deviceUuidError: String?,
         val apiKey: String,
         val apiKeyError: String?,
         val secretKey: String,
@@ -41,6 +43,8 @@ internal data class EditLockUiState(
 
     interface Listener {
         fun onNameChange(value: String)
+
+        fun onDeviceUuidChange(value: String)
 
         fun onApiKeyChange(value: String)
 
