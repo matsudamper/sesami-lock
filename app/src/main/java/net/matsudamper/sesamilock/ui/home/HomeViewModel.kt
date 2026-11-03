@@ -47,6 +47,7 @@ internal class HomeViewModel(
     private val viewState = MutableStateFlow(
         ViewState(
             pendingDeleteLockId = null,
+            pendingRename = null,
             blePermissionsGranted = blePermissions.isGranted(),
             messages = mapOf(),
         ),
@@ -96,6 +97,24 @@ internal class HomeViewModel(
         }
     }
 
+    private val renameDialogListener = object : HomeUiState.RenameDialogListener {
+        override fun onNameChange(name: String) {
+            viewState.update { state -> state.copy(pendingRename = state.pendingRename?.copy(name = name)) }
+        }
+
+        override fun onConfirmClick() {
+            val rename = viewState.value.pendingRename ?: return
+            val name = rename.name.trim()
+            if (name.isEmpty()) return
+            viewState.update { it.copy(pendingRename = null) }
+            viewModelScope.launch { repository.rename(rename.lockId, name) }
+        }
+
+        override fun onCancel() {
+            viewState.update { it.copy(pendingRename = null) }
+        }
+    }
+
     private val permissionListener = object : HomeUiState.PermissionListener {
         override fun onPermissionResult() {
             viewState.update { it.copy(blePermissionsGranted = blePermissions.isGranted()) }
@@ -142,6 +161,13 @@ internal class HomeViewModel(
                 null
             },
             deleteConfirmation = view.pendingDeleteLockId?.let { id -> models.firstOrNull { it.lock.id == id } }?.let(::createDeleteConfirmation),
+            renameDialog = view.pendingRename?.let { rename ->
+                HomeUiState.RenameDialog(
+                    name = rename.name,
+                    confirmButtonEnabled = rename.name.isNotBlank(),
+                    listener = renameDialogListener,
+                )
+            },
             snackbar = models.firstNotNullOfOrNull { createSnackbar(it, view) },
             listener = listener,
         )
@@ -220,6 +246,10 @@ internal class HomeViewModel(
 
         override fun onRefreshClick() {
             refresh(lock)
+        }
+
+        override fun onRenameClick() {
+            viewState.update { it.copy(pendingRename = PendingRename(lockId = lock.id, name = lock.displayName)) }
         }
 
         override fun onDeleteClick() {
@@ -309,8 +339,14 @@ internal class HomeViewModel(
 
     private data class ViewState(
         val pendingDeleteLockId: LockId?,
+        val pendingRename: PendingRename?,
         val blePermissionsGranted: Boolean,
         val messages: Map<LockId, String>,
+    )
+
+    private data class PendingRename(
+        val lockId: LockId,
+        val name: String,
     )
 
     private data class LockModel(
