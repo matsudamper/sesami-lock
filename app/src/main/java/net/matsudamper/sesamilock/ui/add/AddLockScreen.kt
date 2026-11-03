@@ -18,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -104,7 +103,6 @@ internal fun AddLockScreen(
             }
             uiState.bleInput?.let { BleInputContent(it, uiState.listener) }
             uiState.cloudInput?.let { CloudInputContent(it, uiState.listener) }
-            SafetyNotice()
             uiState.generalErrorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Button(
                 onClick = { uiState.listener.onSaveClick() },
@@ -114,39 +112,6 @@ internal fun AddLockScreen(
                     .heightIn(min = 48.dp),
             ) {
                 Text("登録")
-            }
-        }
-    }
-}
-
-@Composable
-private fun SafetyNotice(modifier: Modifier = Modifier) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            ) {
-                Text("登録前にお読みください", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                Icon(
-                    painter = painterResource(if (expanded) R.drawable.ic_expand_less else R.drawable.ic_expand_more),
-                    contentDescription = if (expanded) "閉じる" else "開く",
-                )
-            }
-            if (expanded) {
-                Column(
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text("・このアプリに自動解錠の機能はありません。公式アプリの手ぶら解錠・オートロックは公式アプリで管理してください。")
-                    Text("・最初の動作確認は、ドアを開けた状態で鍵を手元に置いて行ってください。")
-                    Text("・施錠・解錠の位置は公式アプリで設定してください。このアプリでは変更しません。")
-                    Text("・鍵情報はこの端末内に暗号化して保存します。")
-                }
             }
         }
     }
