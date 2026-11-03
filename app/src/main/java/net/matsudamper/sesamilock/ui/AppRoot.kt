@@ -18,11 +18,13 @@ import net.matsudamper.sesamilock.ui.diagnostics.DiagnosticsScreen
 import net.matsudamper.sesamilock.ui.diagnostics.DiagnosticsViewModel
 import net.matsudamper.sesamilock.ui.home.HomeScreen
 import net.matsudamper.sesamilock.ui.home.HomeViewModel
+import net.matsudamper.sesamilock.ui.settings.SettingsScreen
 
 private enum class Destination {
     HOME,
     ADD_LOCK,
     DIAGNOSTICS,
+    SETTINGS,
 }
 
 @Composable
@@ -33,7 +35,7 @@ internal fun AppRoot(
 ) {
     var destination by rememberSaveable { mutableStateOf(Destination.HOME) }
     var addLockVisit by rememberSaveable { mutableIntStateOf(0) }
-    BackHandler(enabled = destination == Destination.DIAGNOSTICS) {
+    BackHandler(enabled = destination == Destination.DIAGNOSTICS || destination == Destination.SETTINGS) {
         destination = Destination.HOME
     }
     when (destination) {
@@ -56,6 +58,7 @@ internal fun AppRoot(
                     destination = Destination.ADD_LOCK
                 },
                 onDiagnosticsClick = { destination = Destination.DIAGNOSTICS },
+                onSettingsClick = { destination = Destination.SETTINGS },
                 modifier = modifier,
             )
         }
@@ -79,5 +82,10 @@ internal fun AppRoot(
                 modifier = modifier,
             )
         }
+
+        Destination.SETTINGS -> SettingsScreen(
+            onBack = { destination = Destination.HOME },
+            modifier = modifier,
+        )
     }
 }
