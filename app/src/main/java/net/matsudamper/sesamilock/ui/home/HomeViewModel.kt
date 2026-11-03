@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import net.matsudamper.sesamilock.BlePermissions
@@ -50,8 +52,10 @@ internal class HomeViewModel(
             pendingRename = null,
             blePermissionsGranted = blePermissions.isGranted(),
             messages = mapOf(),
+            pullRefreshing = false,
         ),
     )
+    private val refreshJobs = mutableMapOf<LockId, Job>()
 
     private var snackbarCache: Pair<String, HomeUiState.Snackbar>? = null
     private val cardListeners = ConcurrentHashMap<LockId, Pair<RegisteredLock, HomeUiState.LockCardListener>>()
@@ -88,6 +92,18 @@ internal class HomeViewModel(
         override fun onResume() {
             viewState.update { it.copy(blePermissionsGranted = blePermissions.isGranted()) }
             refreshAll()
+        }
+
+        override fun onPullToRefresh() {
+            if (viewState.value.pullRefreshing) return
+            viewState.update { it.copy(pullRefreshing = true) }
+            viewModelScope.launch {
+                try {
+                    refreshAll().joinAll()
+                } finally {
+                    viewState.update { it.copy(pullRefreshing = false) }
+                }
+            }
         }
     }
 
@@ -169,6 +185,7 @@ internal class HomeViewModel(
                 )
             },
             snackbar = models.firstNotNullOfOrNull { createSnackbar(it, view) },
+            pullRefreshIndicatorVisible = view.pullRefreshing,
             listener = listener,
         )
     }
@@ -244,10 +261,6 @@ internal class HomeViewModel(
             showMessage(lock.id, "解錠するには長押ししてください")
         }
 
-        override fun onRefreshClick() {
-            refresh(lock)
-        }
-
         override fun onRenameClick() {
             viewState.update { it.copy(pendingRename = PendingRename(lockId = lock.id, name = lock.displayName)) }
         }
@@ -305,12 +318,12 @@ internal class HomeViewModel(
         },
     )
 
-    private fun refreshAll() {
-        registrySync.registeredLocks.value.forEach(::refresh)
-    }
+    private fun refreshAll(): List<Job> = registrySync.registeredLocks.value.map(::refresh)
 
-    private fun refresh(lock: RegisteredLock) {
-        viewModelScope.launch {
+    private fun refresh(lock: RegisteredLock): Job {
+        val running = refreshJobs[lock.id]
+        if (running != null && running.isActive) return running
+        return viewModelScope.launch {
             val transport = transport(lock)
             when (lock.route) {
                 LockRoute.BLE -> {
@@ -324,7 +337,7 @@ internal class HomeViewModel(
 
                 LockRoute.CLOUD -> transport.refreshState(lock.id)
             }
-        }
+        }.also { refreshJobs[lock.id] = it }
     }
 
     private fun showMessage(lockId: LockId, message: String) {
@@ -342,6 +355,7 @@ internal class HomeViewModel(
         val pendingRename: PendingRename?,
         val blePermissionsGranted: Boolean,
         val messages: Map<LockId, String>,
+        val pullRefreshing: Boolean,
     )
 
     private data class PendingRename(
