@@ -118,6 +118,7 @@ internal fun HomeScreen(
                 is HomeUiState.Content.Unrecoverable -> UnrecoverableContent(content)
 
                 is HomeUiState.Content.Locks -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
