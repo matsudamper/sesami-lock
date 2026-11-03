@@ -63,7 +63,7 @@ internal fun AddLockScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("鍵を追加") },
+                title = { Text(uiState.title) },
                 navigationIcon = {
                     IconButton(onClick = { uiState.listener.onBackClick() }) {
                         Icon(painter = painterResource(R.drawable.ic_arrow_back), contentDescription = "戻る")
@@ -111,7 +111,7 @@ internal fun AddLockScreen(
                     .fillMaxWidth()
                     .heightIn(min = 48.dp),
             ) {
-                Text("登録")
+                Text(uiState.saveButtonLabel)
             }
         }
     }

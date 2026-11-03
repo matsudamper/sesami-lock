@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -51,6 +53,9 @@ internal class HomeViewModel(
             messages = mapOf(),
         ),
     )
+
+    private val editRequestChannel = Channel<LockId>(Channel.CONFLATED)
+    val editRequests: Flow<LockId> = editRequestChannel.receiveAsFlow()
 
     private var snackbarCache: Pair<String, HomeUiState.Snackbar>? = null
     private val cardListeners = ConcurrentHashMap<LockId, Pair<RegisteredLock, HomeUiState.LockCardListener>>()
@@ -220,6 +225,10 @@ internal class HomeViewModel(
 
         override fun onRefreshClick() {
             refresh(lock)
+        }
+
+        override fun onEditClick() {
+            editRequestChannel.trySend(lock.id)
         }
 
         override fun onDeleteClick() {

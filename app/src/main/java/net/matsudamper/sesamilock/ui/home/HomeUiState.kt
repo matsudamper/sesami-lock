@@ -87,6 +87,8 @@ internal data class HomeUiState(
 
         fun onRefreshClick()
 
+        fun onEditClick()
+
         fun onDeleteClick()
     }
 

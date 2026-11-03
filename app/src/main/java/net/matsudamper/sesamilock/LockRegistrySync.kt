@@ -34,9 +34,10 @@ internal class LockRegistrySync(
 
     private fun sync(locks: List<RegisteredLock>) {
         val next = locks.associateBy { it.id }
-        registered.filterKeys { it !in next }.values.forEach { unregister(it) }
-        val rejected = next.values.filter { it.id !in registered }.filterNot { register(it) }.map { it.id }.toSet()
-        val nextRejected = (mutableRejectedLockIds.value intersect next.keys) + rejected
+        val credentialChanged = next.values.filter { lock -> registered[lock.id]?.let { it.credential !== lock.credential } == true }.map { it.id }.toSet()
+        registered.filterKeys { it !in next || it in credentialChanged }.values.forEach { unregister(it) }
+        val rejected = next.values.filter { it.id !in registered || it.id in credentialChanged }.filterNot { register(it) }.map { it.id }.toSet()
+        val nextRejected = ((mutableRejectedLockIds.value intersect next.keys) - credentialChanged) + rejected
         mutableRejectedLockIds.value = nextRejected
         registered = next
         mutableRegisteredLocks.value = next.values.filter { it.id !in nextRejected }

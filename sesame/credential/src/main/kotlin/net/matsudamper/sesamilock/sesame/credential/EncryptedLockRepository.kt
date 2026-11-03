@@ -28,6 +28,12 @@ public enum class AddLockResult {
     NOT_READY,
 }
 
+public enum class UpdateLockResult {
+    UPDATED,
+    ALREADY_REGISTERED,
+    NOT_FOUND,
+}
+
 public class EncryptedLockRepository(context: Context) {
     private val file = AtomicFile(File(context.noBackupFilesDir, FILE_NAME))
     private val cipher = KeystoreCipher(KEY_ALIAS)
@@ -49,6 +55,18 @@ public class EncryptedLockRepository(context: Context) {
         mutableState.value = LockRepositoryState.Loaded(updated)
         AddLockResult.ADDED
     }
+
+    public suspend fun update(targetId: LockId, lock: RegisteredLock): UpdateLockResult = mutex.withLock {
+        val current = (mutableState.value as? LockRepositoryState.Loaded)?.locks ?: return@withLock UpdateLockResult.NOT_FOUND
+        if (current.none { it.id == targetId }) return@withLock UpdateLockResult.NOT_FOUND
+        if (lock.id != targetId && current.any { it.id == lock.id }) return@withLock UpdateLockResult.ALREADY_REGISTERED
+        val updated = current.map { if (it.id == targetId) lock else it }
+        withContext(Dispatchers.IO) { write(updated) }
+        mutableState.value = LockRepositoryState.Loaded(updated)
+        UpdateLockResult.UPDATED
+    }
+
+    public fun find(lockId: LockId): RegisteredLock? = (mutableState.value as? LockRepositoryState.Loaded)?.locks?.firstOrNull { it.id == lockId }
 
     public suspend fun remove(lockId: LockId) {
         mutex.withLock {

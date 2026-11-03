@@ -265,6 +265,7 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
                 }
                 LockCardMenu(
                     onRefreshClick = { card.listener.onRefreshClick() },
+                    onEditClick = { card.listener.onEditClick() },
                     onDeleteClick = { card.listener.onDeleteClick() },
                 )
             }
@@ -346,7 +347,7 @@ private fun StatusBadge(icon: HomeUiState.StatusIcon, tone: HomeUiState.Tone, pr
 }
 
 @Composable
-private fun LockCardMenu(onRefreshClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun LockCardMenu(onRefreshClick: () -> Unit, onEditClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         IconButton(onClick = { expanded = true }) {
@@ -359,6 +360,13 @@ private fun LockCardMenu(onRefreshClick: () -> Unit, onDeleteClick: () -> Unit, 
                 onClick = {
                     expanded = false
                     onRefreshClick()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("この鍵を編集") },
+                onClick = {
+                    expanded = false
+                    onEditClick()
                 },
             )
             DropdownMenuItem(
