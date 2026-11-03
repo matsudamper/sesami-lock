@@ -28,8 +28,9 @@ import net.matsudamper.sesamilock.sesame.credential.UpdateLockResult
 internal class AddLockViewModel(
     private val repository: EncryptedLockRepository,
     private val qrImageDecoder: QrImageDecoder,
-    private val editingLockId: LockId?,
+    private val mode: AddLockMode,
 ) : ViewModel() {
+    private val editingLockId: LockId? = (mode as? AddLockMode.Edit)?.lockId
     private val form = MutableStateFlow(initialForm())
 
     private val listener = object : AddLockUiState.Listener {
@@ -94,8 +95,8 @@ internal class AddLockViewModel(
             saving = false,
             closeRequested = false,
         )
-        if (editingLockId == null) return empty
-        val lock = repository.find(editingLockId) ?: return empty.copy(closeRequested = true)
+        if (mode !is AddLockMode.Edit) return empty
+        val lock = editingLockId?.let(repository::find) ?: return empty.copy(closeRequested = true)
         return when (val credential = lock.credential) {
             is LockCredential.Ble -> empty.copy(
                 name = lock.displayName,
@@ -115,8 +116,8 @@ internal class AddLockViewModel(
     }
 
     private fun buildUiState(form: Form): AddLockUiState = AddLockUiState(
-        title = if (editingLockId == null) "鍵を追加" else "鍵を編集",
-        saveButtonLabel = if (editingLockId == null) "登録" else "保存",
+        title = if (mode is AddLockMode.Edit) "鍵を編集" else "鍵を追加",
+        saveButtonLabel = if (mode is AddLockMode.Edit) "保存" else "登録",
         name = form.name,
         bleRouteSelected = form.route == LockRoute.BLE,
         cloudRouteSelected = form.route == LockRoute.CLOUD,
@@ -177,7 +178,8 @@ internal class AddLockViewModel(
         }
         form.update { it.copy(saving = true, error = null) }
         viewModelScope.launch {
-            val error = if (editingLockId == null) addError(lock) else updateError(editingLockId, lock)
+            val targetId = editingLockId
+            val error = if (targetId == null) addError(lock) else updateError(targetId, lock)
             form.update {
                 if (error == null) {
                     it.clearedSecrets().copy(saving = false, closeRequested = true)

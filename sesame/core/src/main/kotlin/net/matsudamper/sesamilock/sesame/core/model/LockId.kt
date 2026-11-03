@@ -23,11 +23,5 @@ public value class LockId private constructor(public val value: String) {
             val uuid = runCatching { UUID.fromString(deviceUuid) }.getOrNull() ?: return null
             return LockId("${route.name}$SEPARATOR${uuid.toString().uppercase(Locale.ROOT)}")
         }
-
-        public fun parse(value: String): LockId? {
-            val routeName = value.substringBefore(SEPARATOR, missingDelimiterValue = "")
-            val route = LockRoute.entries.firstOrNull { it.name == routeName } ?: return null
-            return of(value.substringAfter(SEPARATOR), route)?.takeIf { it.value == value }
-        }
     }
 }

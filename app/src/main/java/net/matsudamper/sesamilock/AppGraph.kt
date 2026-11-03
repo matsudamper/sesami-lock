@@ -51,6 +51,7 @@ internal class AppGraph(application: Application) {
     )
     val registrySync = LockRegistrySync(repository, bleTransport, cloudTransport)
     val qrImageDecoder = QrImageDecoder(application.contentResolver)
+    val editingLockSelection = EditingLockSelection()
 
     fun start() {
         registrySync.start(applicationScope)

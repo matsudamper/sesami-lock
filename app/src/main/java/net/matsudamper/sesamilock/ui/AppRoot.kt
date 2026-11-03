@@ -2,7 +2,6 @@ package net.matsudamper.sesamilock.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -13,7 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import net.matsudamper.sesamilock.AppGraph
 import net.matsudamper.sesamilock.BlePermissions
-import net.matsudamper.sesamilock.sesame.core.model.LockId
+import net.matsudamper.sesamilock.ui.add.AddLockMode
 import net.matsudamper.sesamilock.ui.add.AddLockScreen
 import net.matsudamper.sesamilock.ui.add.AddLockViewModel
 import net.matsudamper.sesamilock.ui.diagnostics.DiagnosticsScreen
@@ -25,6 +24,7 @@ import net.matsudamper.sesamilock.ui.settings.SettingsScreen
 private enum class Destination {
     HOME,
     ADD_LOCK,
+    EDIT_LOCK,
     DIAGNOSTICS,
     SETTINGS,
 }
@@ -37,7 +37,6 @@ internal fun AppRoot(
 ) {
     var destination by rememberSaveable { mutableStateOf(Destination.HOME) }
     var addLockVisit by rememberSaveable { mutableIntStateOf(0) }
-    var editingLockIdValue by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = destination == Destination.DIAGNOSTICS || destination == Destination.SETTINGS) {
         destination = Destination.HOME
     }
@@ -51,22 +50,19 @@ internal fun AppRoot(
                     clock = graph.clock,
                     registrySync = graph.registrySync,
                     blePermissions = blePermissions,
+                    editingLockSelection = graph.editingLockSelection,
                 )
             }
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-            LaunchedEffect(viewModel) {
-                viewModel.editRequests.collect { lockId ->
-                    addLockVisit += 1
-                    editingLockIdValue = lockId.value
-                    destination = Destination.ADD_LOCK
-                }
-            }
             HomeScreen(
                 uiState = uiState,
                 onAddLockClick = {
                     addLockVisit += 1
-                    editingLockIdValue = null
                     destination = Destination.ADD_LOCK
+                },
+                onEditLockRequested = {
+                    addLockVisit += 1
+                    destination = Destination.EDIT_LOCK
                 },
                 onDiagnosticsClick = { destination = Destination.DIAGNOSTICS },
                 onSettingsClick = { destination = Destination.SETTINGS },
@@ -74,12 +70,18 @@ internal fun AppRoot(
             )
         }
 
-        Destination.ADD_LOCK -> {
+        Destination.ADD_LOCK,
+        Destination.EDIT_LOCK,
+        -> {
             val viewModel = viewModel(key = "add-lock-$addLockVisit") {
                 AddLockViewModel(
                     repository = graph.repository,
                     qrImageDecoder = graph.qrImageDecoder,
-                    editingLockId = editingLockIdValue?.let(LockId::parse),
+                    mode = if (destination == Destination.EDIT_LOCK) {
+                        AddLockMode.Edit(graph.editingLockSelection.take())
+                    } else {
+                        AddLockMode.New
+                    },
                 )
             }
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()

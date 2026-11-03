@@ -43,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -65,10 +66,18 @@ private val actionButtonHeight = 56.dp
 internal fun HomeScreen(
     uiState: HomeUiState,
     onAddLockClick: () -> Unit,
+    onEditLockRequested: () -> Unit,
     onDiagnosticsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val currentOnEditLockRequested = rememberUpdatedState(onEditLockRequested)
+    LaunchedEffect(uiState.editScreenRequested) {
+        if (uiState.editScreenRequested) {
+            uiState.listener.onEditScreenOpened()
+            currentOnEditLockRequested.value()
+        }
+    }
     LifecycleResumeEffect(uiState.listener) {
         uiState.listener.onResume()
         onPauseOrDispose { }

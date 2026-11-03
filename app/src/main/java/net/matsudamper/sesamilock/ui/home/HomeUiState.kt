@@ -8,6 +8,7 @@ internal data class HomeUiState(
     val permissionBanner: PermissionBanner?,
     val deleteConfirmation: DeleteConfirmation?,
     val snackbar: Snackbar?,
+    val editScreenRequested: Boolean,
     val listener: Listener,
 ) {
     @Immutable
@@ -70,6 +71,8 @@ internal data class HomeUiState(
 
     interface Listener {
         fun onResume()
+
+        fun onEditScreenOpened()
     }
 
     interface UnrecoverableListener {
