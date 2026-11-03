@@ -13,7 +13,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import net.matsudamper.sesamilock.AppGraph
 import net.matsudamper.sesamilock.BlePermissions
-import net.matsudamper.sesamilock.sesame.core.model.LockId
 import net.matsudamper.sesamilock.ui.add.AddLockScreen
 import net.matsudamper.sesamilock.ui.add.AddLockViewModel
 import net.matsudamper.sesamilock.ui.diagnostics.DiagnosticsScreen
@@ -40,7 +39,6 @@ internal fun AppRoot(
 ) {
     var destination by rememberSaveable { mutableStateOf(Destination.HOME) }
     var addLockVisit by rememberSaveable { mutableIntStateOf(0) }
-    var editingDeviceUuid by rememberSaveable { mutableStateOf<String?>(null) }
     var editLockVisit by rememberSaveable { mutableIntStateOf(0) }
     BackHandler(enabled = destination == Destination.DIAGNOSTICS || destination == Destination.SETTINGS) {
         destination = Destination.HOME
@@ -55,16 +53,17 @@ internal fun AppRoot(
                     clock = graph.clock,
                     registrySync = graph.registrySync,
                     blePermissions = blePermissions,
+                    editLockSelection = graph.editLockSelection,
                 )
             }
-            LaunchedEffect(viewModel) {
-                viewModel.editRequests.collect { lockId ->
-                    editingDeviceUuid = lockId.value
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(uiState.editScreenRequested) {
+                if (uiState.editScreenRequested) {
+                    uiState.listener.onEditScreenOpened()
                     editLockVisit += 1
                     destination = Destination.EDIT_LOCK
                 }
             }
-            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             HomeScreen(
                 uiState = uiState,
                 onAddLockClick = {
@@ -103,7 +102,7 @@ internal fun AppRoot(
         )
 
         Destination.EDIT_LOCK -> {
-            val lockId = editingDeviceUuid?.let(LockId::fromDeviceUuid)
+            val lockId = graph.editLockSelection.lockId
             if (lockId == null) {
                 LaunchedEffect(Unit) { destination = Destination.HOME }
             } else {

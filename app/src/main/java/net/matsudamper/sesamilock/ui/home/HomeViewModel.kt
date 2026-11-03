@@ -7,12 +7,9 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -38,6 +35,7 @@ import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.sesame.credential.LockRepositoryState
+import net.matsudamper.sesamilock.ui.edit.EditLockSelection
 
 internal class HomeViewModel(
     private val repository: EncryptedLockRepository,
@@ -46,17 +44,16 @@ internal class HomeViewModel(
     private val clock: LockClock,
     private val registrySync: LockRegistrySync,
     private val blePermissions: BlePermissions,
+    private val editLockSelection: EditLockSelection,
 ) : ViewModel() {
     private val viewState = MutableStateFlow(
         ViewState(
             pendingDeleteLockId = null,
             blePermissionsGranted = blePermissions.isGranted(),
             messages = mapOf(),
+            editScreenRequested = false,
         ),
     )
-
-    private val mutableEditRequests = MutableSharedFlow<LockId>(extraBufferCapacity = 1)
-    val editRequests: SharedFlow<LockId> = mutableEditRequests.asSharedFlow()
 
     private var snackbarCache: Pair<String, HomeUiState.Snackbar>? = null
     private val cardListeners = ConcurrentHashMap<LockId, Pair<RegisteredLock, HomeUiState.LockCardListener>>()
@@ -93,6 +90,10 @@ internal class HomeViewModel(
         override fun onResume() {
             viewState.update { it.copy(blePermissionsGranted = blePermissions.isGranted()) }
             refreshAll()
+        }
+
+        override fun onEditScreenOpened() {
+            viewState.update { it.copy(editScreenRequested = false) }
         }
     }
 
@@ -149,6 +150,7 @@ internal class HomeViewModel(
             },
             deleteConfirmation = view.pendingDeleteLockId?.let { id -> models.firstOrNull { it.lock.id == id } }?.let(::createDeleteConfirmation),
             snackbar = models.firstNotNullOfOrNull { createSnackbar(it, view) },
+            editScreenRequested = view.editScreenRequested,
             listener = listener,
         )
     }
@@ -229,7 +231,8 @@ internal class HomeViewModel(
         }
 
         override fun onEditClick() {
-            mutableEditRequests.tryEmit(lock.id)
+            editLockSelection.lockId = lock.id
+            viewState.update { it.copy(editScreenRequested = true) }
         }
 
         override fun onDeleteClick() {
@@ -321,6 +324,7 @@ internal class HomeViewModel(
         val pendingDeleteLockId: LockId?,
         val blePermissionsGranted: Boolean,
         val messages: Map<LockId, String>,
+        val editScreenRequested: Boolean,
     )
 
     private data class LockModel(
