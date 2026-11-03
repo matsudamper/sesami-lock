@@ -363,14 +363,14 @@ private fun LockCardMenu(onRefreshClick: () -> Unit, onEditClick: () -> Unit, on
                 },
             )
             DropdownMenuItem(
-                text = { Text("この鍵を編集") },
+                text = { Text("編集") },
                 onClick = {
                     expanded = false
                     onEditClick()
                 },
             )
             DropdownMenuItem(
-                text = { Text("この鍵を削除") },
+                text = { Text("削除") },
                 onClick = {
                     expanded = false
                     onDeleteClick()
