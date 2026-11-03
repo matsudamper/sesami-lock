@@ -224,10 +224,14 @@ internal class HomeViewModel(
     }
 
     private fun createCardListener(lock: RegisteredLock): HomeUiState.LockCardListener = object : HomeUiState.LockCardListener {
-        override fun onLockClick() {
+        override fun onLockLongPress() {
             clearMessage(lock.id)
             val result = coordinator.requestLock(LockTarget(lock.id, lock.route))
             if (result is StartResult.Rejected) showMessage(lock.id, LockTexts.rejected(result.reason))
+        }
+
+        override fun onLockTap() {
+            showMessage(lock.id, "施錠するには長押ししてください")
         }
 
         override fun onUnlockLongPress() {
