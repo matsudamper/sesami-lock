@@ -66,6 +66,7 @@ internal fun HomeScreen(
     uiState: HomeUiState,
     onAddLockClick: () -> Unit,
     onDiagnosticsClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LifecycleResumeEffect(uiState.listener) {
@@ -92,7 +93,7 @@ internal fun HomeScreen(
                     IconButton(onClick = onAddLockClick) {
                         Icon(painter = painterResource(R.drawable.ic_add), contentDescription = "鍵を追加")
                     }
-                    OverflowMenu(onDiagnosticsClick = onDiagnosticsClick)
+                    OverflowMenu(onDiagnosticsClick = onDiagnosticsClick, onSettingsClick = onSettingsClick)
                 },
             )
         },
@@ -125,7 +126,7 @@ internal fun HomeScreen(
 }
 
 @Composable
-private fun OverflowMenu(onDiagnosticsClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun OverflowMenu(onDiagnosticsClick: () -> Unit, onSettingsClick: () -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         IconButton(onClick = { expanded = true }) {
@@ -137,6 +138,13 @@ private fun OverflowMenu(onDiagnosticsClick: () -> Unit, modifier: Modifier = Mo
                 onClick = {
                     expanded = false
                     onDiagnosticsClick()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("設定") },
+                onClick = {
+                    expanded = false
+                    onSettingsClick()
                 },
             )
         }
