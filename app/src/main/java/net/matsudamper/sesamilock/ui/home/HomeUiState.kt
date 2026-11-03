@@ -77,7 +77,9 @@ internal data class HomeUiState(
     }
 
     interface LockCardListener {
-        fun onLockClick()
+        fun onLockLongPress()
+
+        fun onLockTap()
 
         fun onUnlockLongPress()
 
