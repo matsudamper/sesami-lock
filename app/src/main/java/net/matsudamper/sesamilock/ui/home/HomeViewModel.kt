@@ -37,6 +37,7 @@ import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.sesame.credential.LockRepositoryState
+import net.matsudamper.sesamilock.ui.edit.EditLockSelection
 
 internal class HomeViewModel(
     private val repository: EncryptedLockRepository,
@@ -45,14 +46,15 @@ internal class HomeViewModel(
     private val clock: LockClock,
     private val registrySync: LockRegistrySync,
     private val blePermissions: BlePermissions,
+    private val editLockSelection: EditLockSelection,
 ) : ViewModel() {
     private val viewState = MutableStateFlow(
         ViewState(
             pendingDeleteLockId = null,
-            pendingRename = null,
             blePermissionsGranted = blePermissions.isGranted(),
             messages = mapOf(),
             pullRefreshing = false,
+            editScreenRequested = false,
         ),
     )
     private val refreshJobs = mutableMapOf<LockId, Job>()
@@ -105,29 +107,15 @@ internal class HomeViewModel(
                 }
             }
         }
+
+        override fun onEditScreenOpened() {
+            viewState.update { it.copy(editScreenRequested = false) }
+        }
     }
 
     private val unrecoverableListener = object : HomeUiState.UnrecoverableListener {
         override fun onDeleteAllClick() {
             viewModelScope.launch { repository.deleteAll() }
-        }
-    }
-
-    private val renameDialogListener = object : HomeUiState.RenameDialogListener {
-        override fun onNameChange(name: String) {
-            viewState.update { state -> state.copy(pendingRename = state.pendingRename?.copy(name = name)) }
-        }
-
-        override fun onConfirmClick() {
-            val rename = viewState.value.pendingRename ?: return
-            val name = rename.name.trim()
-            if (name.isEmpty()) return
-            viewState.update { it.copy(pendingRename = null) }
-            viewModelScope.launch { repository.rename(rename.lockId, name) }
-        }
-
-        override fun onCancel() {
-            viewState.update { it.copy(pendingRename = null) }
         }
     }
 
@@ -177,15 +165,9 @@ internal class HomeViewModel(
                 null
             },
             deleteConfirmation = view.pendingDeleteLockId?.let { id -> models.firstOrNull { it.lock.id == id } }?.let(::createDeleteConfirmation),
-            renameDialog = view.pendingRename?.let { rename ->
-                HomeUiState.RenameDialog(
-                    name = rename.name,
-                    confirmButtonEnabled = rename.name.isNotBlank(),
-                    listener = renameDialogListener,
-                )
-            },
             snackbar = models.firstNotNullOfOrNull { createSnackbar(it, view) },
             pullRefreshIndicatorVisible = view.pullRefreshing,
+            editScreenRequested = view.editScreenRequested,
             listener = listener,
         )
     }
@@ -261,8 +243,9 @@ internal class HomeViewModel(
             showMessage(lock.id, "解錠するには長押ししてください")
         }
 
-        override fun onRenameClick() {
-            viewState.update { it.copy(pendingRename = PendingRename(lockId = lock.id, name = lock.displayName)) }
+        override fun onEditClick() {
+            editLockSelection.lockId = lock.id
+            viewState.update { it.copy(editScreenRequested = true) }
         }
 
         override fun onDeleteClick() {
@@ -352,15 +335,10 @@ internal class HomeViewModel(
 
     private data class ViewState(
         val pendingDeleteLockId: LockId?,
-        val pendingRename: PendingRename?,
         val blePermissionsGranted: Boolean,
         val messages: Map<LockId, String>,
         val pullRefreshing: Boolean,
-    )
-
-    private data class PendingRename(
-        val lockId: LockId,
-        val name: String,
+        val editScreenRequested: Boolean,
     )
 
     private data class LockModel(

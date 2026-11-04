@@ -31,7 +31,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -131,7 +130,6 @@ internal fun HomeScreen(
     }
 
     uiState.deleteConfirmation?.let { DeleteConfirmationDialog(it) }
-    uiState.renameDialog?.let { RenameDialog(it) }
 }
 
 @Composable
@@ -273,7 +271,7 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
                     Text(card.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 LockCardMenu(
-                    onRenameClick = { card.listener.onRenameClick() },
+                    onEditClick = { card.listener.onEditClick() },
                     onDeleteClick = { card.listener.onDeleteClick() },
                 )
             }
@@ -355,7 +353,7 @@ private fun StatusBadge(icon: HomeUiState.StatusIcon, tone: HomeUiState.Tone, pr
 }
 
 @Composable
-private fun LockCardMenu(onRenameClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun LockCardMenu(onEditClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         IconButton(onClick = { expanded = true }) {
@@ -363,10 +361,10 @@ private fun LockCardMenu(onRenameClick: () -> Unit, onDeleteClick: () -> Unit, m
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text("名前を変更") },
+                text = { Text("編集") },
                 onClick = {
                     expanded = false
-                    onRenameClick()
+                    onEditClick()
                 },
             )
             DropdownMenuItem(
@@ -378,29 +376,6 @@ private fun LockCardMenu(onRenameClick: () -> Unit, onDeleteClick: () -> Unit, m
             )
         }
     }
-}
-
-@Composable
-private fun RenameDialog(dialog: HomeUiState.RenameDialog) {
-    AlertDialog(
-        onDismissRequest = { dialog.listener.onCancel() },
-        title = { Text("名前を変更") },
-        text = {
-            OutlinedTextField(
-                value = dialog.name,
-                onValueChange = { dialog.listener.onNameChange(it) },
-                label = { Text("表示名") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { dialog.listener.onConfirmClick() }, enabled = dialog.confirmButtonEnabled) { Text("変更") }
-        },
-        dismissButton = {
-            TextButton(onClick = { dialog.listener.onCancel() }) { Text("キャンセル") }
-        },
-    )
 }
 
 @Composable
