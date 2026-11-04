@@ -48,16 +48,6 @@ public object SesameKeyImporter {
         }
     }
 
-    public fun exportJson(credential: LockCredential.Ble): String = JsonObject(
-        mapOf(
-            "deviceUUID" to JsonPrimitive(credential.deviceUuid),
-            "deviceModel" to JsonPrimitive(credential.model.deviceModel),
-            "keyIndex" to JsonPrimitive(credential.keyIndexHex),
-            "secretKey" to JsonPrimitive(credential.secretKeyHex),
-            "sesame2PublicKey" to JsonPrimitive(credential.publicKeyHex),
-        ),
-    ).toString()
-
     public fun validate(
         deviceUuid: String,
         deviceModel: String,

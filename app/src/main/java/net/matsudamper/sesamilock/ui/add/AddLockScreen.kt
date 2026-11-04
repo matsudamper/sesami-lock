@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -41,11 +40,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import net.matsudamper.sesamilock.R
+import net.matsudamper.sesamilock.ui.component.SecretTextField
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,7 +60,7 @@ internal fun AddLockScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text(uiState.title) },
+                title = { Text("鍵を追加") },
                 navigationIcon = {
                     IconButton(onClick = { uiState.listener.onBackClick() }) {
                         Icon(painter = painterResource(R.drawable.ic_arrow_back), contentDescription = "戻る")
@@ -111,7 +108,7 @@ internal fun AddLockScreen(
                     .fillMaxWidth()
                     .heightIn(min = 48.dp),
             ) {
-                Text(uiState.saveButtonLabel)
+                Text("登録")
             }
         }
     }
@@ -219,35 +216,4 @@ private fun ModelSelector(input: AddLockUiState.CloudInput, modifier: Modifier =
             }
         }
     }
-}
-
-@Composable
-private fun SecretTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    singleLine: Boolean,
-    errorMessage: String?,
-    modifier: Modifier = Modifier,
-) {
-    var revealed by rememberSaveable { mutableStateOf(false) }
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        singleLine = singleLine,
-        isError = errorMessage != null,
-        supportingText = errorMessage?.let { { Text(it) } },
-        visualTransformation = if (revealed) VisualTransformation.None else PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
-        trailingIcon = {
-            IconButton(onClick = { revealed = !revealed }) {
-                Icon(
-                    painter = painterResource(if (revealed) R.drawable.ic_visibility_off else R.drawable.ic_visibility),
-                    contentDescription = if (revealed) "隠す" else "表示する",
-                )
-            }
-        },
-        modifier = modifier,
-    )
 }

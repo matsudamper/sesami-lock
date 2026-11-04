@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,10 +17,10 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import net.matsudamper.sesamilock.BlePermissions
-import net.matsudamper.sesamilock.EditingLockSelection
 import net.matsudamper.sesamilock.LockRegistrySync
 import net.matsudamper.sesamilock.sesame.core.coordinator.CommandPhase
 import net.matsudamper.sesamilock.sesame.core.coordinator.LockCommandCoordinator
@@ -36,6 +37,7 @@ import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.sesame.credential.LockRepositoryState
+import net.matsudamper.sesamilock.ui.edit.EditLockSelection
 
 internal class HomeViewModel(
     private val repository: EncryptedLockRepository,
@@ -44,16 +46,18 @@ internal class HomeViewModel(
     private val clock: LockClock,
     private val registrySync: LockRegistrySync,
     private val blePermissions: BlePermissions,
-    private val editingLockSelection: EditingLockSelection,
+    private val editLockSelection: EditLockSelection,
 ) : ViewModel() {
     private val viewState = MutableStateFlow(
         ViewState(
             pendingDeleteLockId = null,
-            editScreenRequested = false,
             blePermissionsGranted = blePermissions.isGranted(),
             messages = mapOf(),
+            pullRefreshing = false,
+            editScreenRequested = false,
         ),
     )
+    private val refreshJobs = mutableMapOf<LockId, Job>()
 
     private var snackbarCache: Pair<String, HomeUiState.Snackbar>? = null
     private val cardListeners = ConcurrentHashMap<LockId, Pair<RegisteredLock, HomeUiState.LockCardListener>>()
@@ -90,6 +94,18 @@ internal class HomeViewModel(
         override fun onResume() {
             viewState.update { it.copy(blePermissionsGranted = blePermissions.isGranted()) }
             refreshAll()
+        }
+
+        override fun onPullToRefresh() {
+            if (viewState.value.pullRefreshing) return
+            viewState.update { it.copy(pullRefreshing = true) }
+            viewModelScope.launch {
+                try {
+                    refreshAll().joinAll()
+                } finally {
+                    viewState.update { it.copy(pullRefreshing = false) }
+                }
+            }
         }
 
         override fun onEditScreenOpened() {
@@ -153,6 +169,7 @@ internal class HomeViewModel(
             },
             deleteConfirmation = view.pendingDeleteLockId?.let { id -> models.firstOrNull { it.lock.id == id } }?.let(::createDeleteConfirmation),
             snackbar = models.firstNotNullOfOrNull { createSnackbar(it, view) },
+            pullRefreshIndicatorVisible = view.pullRefreshing,
             editScreenRequested = view.editScreenRequested,
             listener = listener,
         )
@@ -229,12 +246,8 @@ internal class HomeViewModel(
             showMessage(lock.id, "解錠するには長押ししてください")
         }
 
-        override fun onRefreshClick() {
-            refresh(lock)
-        }
-
         override fun onEditClick() {
-            editingLockSelection.select(lock.id)
+            editLockSelection.lockId = lock.id
             viewState.update { it.copy(editScreenRequested = true) }
         }
 
@@ -291,12 +304,12 @@ internal class HomeViewModel(
         },
     )
 
-    private fun refreshAll() {
-        registrySync.registeredLocks.value.forEach(::refresh)
-    }
+    private fun refreshAll(): List<Job> = registrySync.registeredLocks.value.map(::refresh)
 
-    private fun refresh(lock: RegisteredLock) {
-        viewModelScope.launch {
+    private fun refresh(lock: RegisteredLock): Job {
+        val running = refreshJobs[lock.id]
+        if (running != null && running.isActive) return running
+        return viewModelScope.launch {
             val transport = transport(lock)
             when (lock.route) {
                 LockRoute.BLE -> {
@@ -310,7 +323,7 @@ internal class HomeViewModel(
 
                 LockRoute.CLOUD -> transport.refreshState(lock.id)
             }
-        }
+        }.also { refreshJobs[lock.id] = it }
     }
 
     private fun showMessage(lockId: LockId, message: String) {
@@ -325,9 +338,10 @@ internal class HomeViewModel(
 
     private data class ViewState(
         val pendingDeleteLockId: LockId?,
-        val editScreenRequested: Boolean,
         val blePermissionsGranted: Boolean,
         val messages: Map<LockId, String>,
+        val pullRefreshing: Boolean,
+        val editScreenRequested: Boolean,
     )
 
     private data class LockModel(

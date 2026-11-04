@@ -5,8 +5,6 @@ import androidx.compose.runtime.Immutable
 
 @Immutable
 internal data class AddLockUiState(
-    val title: String,
-    val saveButtonLabel: String,
     val name: String,
     val bleRouteSelected: Boolean,
     val cloudRouteSelected: Boolean,

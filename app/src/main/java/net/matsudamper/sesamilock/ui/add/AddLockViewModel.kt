@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.Locale
-import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -23,15 +22,26 @@ import net.matsudamper.sesamilock.sesame.core.model.RegisteredLock
 import net.matsudamper.sesamilock.sesame.core.model.SesameModel
 import net.matsudamper.sesamilock.sesame.credential.AddLockResult
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
-import net.matsudamper.sesamilock.sesame.credential.UpdateLockResult
 
 internal class AddLockViewModel(
     private val repository: EncryptedLockRepository,
     private val qrImageDecoder: QrImageDecoder,
-    private val mode: AddLockMode,
 ) : ViewModel() {
-    private val editingLockId: LockId? = (mode as? AddLockMode.Edit)?.lockId
-    private val form = MutableStateFlow(initialForm())
+    private val form = MutableStateFlow(
+        Form(
+            name = "",
+            route = LockRoute.BLE,
+            keyText = "",
+            deviceUuid = "",
+            apiKey = "",
+            secretKey = "",
+            cloudModel = SesameModel.SESAME_5,
+            error = null,
+            qrReading = false,
+            saving = false,
+            closeRequested = false,
+        ),
+    )
 
     private val listener = object : AddLockUiState.Listener {
         override fun onNameChange(value: String) {
@@ -81,43 +91,7 @@ internal class AddLockViewModel(
         initialValue = buildUiState(form.value),
     )
 
-    private fun initialForm(): Form {
-        val empty = Form(
-            name = "",
-            route = LockRoute.BLE,
-            keyText = "",
-            deviceUuid = "",
-            apiKey = "",
-            secretKey = "",
-            cloudModel = SesameModel.SESAME_5,
-            error = null,
-            qrReading = false,
-            saving = false,
-            closeRequested = false,
-        )
-        if (mode !is AddLockMode.Edit) return empty
-        val lock = editingLockId?.let(repository::find) ?: return empty.copy(closeRequested = true)
-        return when (val credential = lock.credential) {
-            is LockCredential.Ble -> empty.copy(
-                name = lock.displayName,
-                route = LockRoute.BLE,
-                keyText = SesameKeyImporter.exportJson(credential),
-            )
-
-            is LockCredential.Cloud -> empty.copy(
-                name = lock.displayName,
-                route = LockRoute.CLOUD,
-                deviceUuid = credential.deviceUuid,
-                apiKey = credential.apiKey,
-                secretKey = credential.secretKeyHex,
-                cloudModel = credential.model,
-            )
-        }
-    }
-
     private fun buildUiState(form: Form): AddLockUiState = AddLockUiState(
-        title = if (mode is AddLockMode.Edit) "鍵を編集" else "鍵を追加",
-        saveButtonLabel = if (mode is AddLockMode.Edit) "保存" else "登録",
         name = form.name,
         bleRouteSelected = form.route == LockRoute.BLE,
         cloudRouteSelected = form.route == LockRoute.CLOUD,
@@ -178,28 +152,12 @@ internal class AddLockViewModel(
         }
         form.update { it.copy(saving = true, error = null) }
         viewModelScope.launch {
-            val targetId = editingLockId
-            val error = if (targetId == null) addError(lock) else updateError(targetId, lock)
-            form.update {
-                if (error == null) {
-                    it.clearedSecrets().copy(saving = false, closeRequested = true)
-                } else {
-                    it.copy(saving = false, error = FormError(FormField.GENERAL, error))
-                }
+            when (repository.add(lock)) {
+                AddLockResult.ADDED -> form.update { it.clearedSecrets().copy(saving = false, closeRequested = true) }
+                AddLockResult.ALREADY_REGISTERED -> form.update { it.copy(saving = false, error = FormError(FormField.GENERAL, "この SESAME は同じ経路で登録済みです。既存の鍵は変更していません")) }
+                AddLockResult.NOT_READY -> form.update { it.copy(saving = false, error = FormError(FormField.GENERAL, "保存領域を読み込めていません")) }
             }
         }
-    }
-
-    private suspend fun addError(lock: RegisteredLock): String? = when (repository.add(lock)) {
-        AddLockResult.ADDED -> null
-        AddLockResult.ALREADY_REGISTERED -> "この SESAME は同じ経路で登録済みです。既存の鍵は変更していません"
-        AddLockResult.NOT_READY -> "保存領域を読み込めていません"
-    }
-
-    private suspend fun updateError(targetId: LockId, lock: RegisteredLock): String? = when (repository.update(targetId, lock)) {
-        UpdateLockResult.UPDATED -> null
-        UpdateLockResult.ALREADY_REGISTERED -> "この SESAME は同じ経路で別に登録済みです。変更していません"
-        UpdateLockResult.NOT_FOUND -> "編集中の鍵が見つかりません"
     }
 
     private fun readQrImage(uri: Uri) {
@@ -239,7 +197,7 @@ internal class AddLockViewModel(
         val secret = form.secretKey.trim().lowercase(Locale.ROOT)
         if (!secretKeyPattern.matches(secret)) return Parsed.Error(FormError(FormField.SECRET_KEY, "32 桁の 16 進数で入力してください"))
         val credential = LockCredential.Cloud(
-            deviceUuid = UUID.fromString(form.deviceUuid.trim()).toString().uppercase(Locale.ROOT),
+            deviceUuid = id.deviceUuid,
             model = form.cloudModel,
             apiKey = apiKey,
             secretKeyHex = secret,

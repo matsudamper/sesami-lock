@@ -8,6 +8,7 @@ internal data class HomeUiState(
     val permissionBanner: PermissionBanner?,
     val deleteConfirmation: DeleteConfirmation?,
     val snackbar: Snackbar?,
+    val pullRefreshIndicatorVisible: Boolean,
     val editScreenRequested: Boolean,
     val listener: Listener,
 ) {
@@ -72,6 +73,8 @@ internal data class HomeUiState(
     interface Listener {
         fun onResume()
 
+        fun onPullToRefresh()
+
         fun onEditScreenOpened()
     }
 
@@ -87,8 +90,6 @@ internal data class HomeUiState(
         fun onUnlockLongPress()
 
         fun onUnlockTap()
-
-        fun onRefreshClick()
 
         fun onEditClick()
 

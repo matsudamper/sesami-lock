@@ -20,6 +20,7 @@ import net.matsudamper.sesamilock.sesame.core.model.LockClock
 import net.matsudamper.sesamilock.sesame.core.model.LockRoute
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
+import net.matsudamper.sesamilock.ui.edit.EditLockSelection
 
 internal class AppGraph(application: Application) {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -51,7 +52,7 @@ internal class AppGraph(application: Application) {
     )
     val registrySync = LockRegistrySync(repository, bleTransport, cloudTransport)
     val qrImageDecoder = QrImageDecoder(application.contentResolver)
-    val editingLockSelection = EditingLockSelection()
+    val editLockSelection = EditLockSelection()
 
     fun start() {
         registrySync.start(applicationScope)

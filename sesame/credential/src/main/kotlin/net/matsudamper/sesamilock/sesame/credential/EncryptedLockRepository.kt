@@ -32,6 +32,7 @@ public enum class UpdateLockResult {
     UPDATED,
     ALREADY_REGISTERED,
     NOT_FOUND,
+    NOT_READY,
 }
 
 public class EncryptedLockRepository(context: Context) {
@@ -56,18 +57,6 @@ public class EncryptedLockRepository(context: Context) {
         AddLockResult.ADDED
     }
 
-    public suspend fun update(targetId: LockId, lock: RegisteredLock): UpdateLockResult = mutex.withLock {
-        val current = (mutableState.value as? LockRepositoryState.Loaded)?.locks ?: return@withLock UpdateLockResult.NOT_FOUND
-        if (current.none { it.id == targetId }) return@withLock UpdateLockResult.NOT_FOUND
-        if (lock.id != targetId && current.any { it.id == lock.id }) return@withLock UpdateLockResult.ALREADY_REGISTERED
-        val updated = current.map { if (it.id == targetId) lock else it }
-        withContext(Dispatchers.IO) { write(updated) }
-        mutableState.value = LockRepositoryState.Loaded(updated)
-        UpdateLockResult.UPDATED
-    }
-
-    public fun find(lockId: LockId): RegisteredLock? = (mutableState.value as? LockRepositoryState.Loaded)?.locks?.firstOrNull { it.id == lockId }
-
     public suspend fun remove(lockId: LockId) {
         mutex.withLock {
             val current = (mutableState.value as? LockRepositoryState.Loaded)?.locks ?: return@withLock
@@ -75,6 +64,19 @@ public class EncryptedLockRepository(context: Context) {
             withContext(Dispatchers.IO) { write(updated) }
             mutableState.value = LockRepositoryState.Loaded(updated)
         }
+    }
+
+    /**
+     * [originalId] の鍵を [lock] に置き換える。UUID を変えると ID も変わるため、変更後の ID がほかの鍵と重なる場合は保存しない。
+     */
+    public suspend fun update(originalId: LockId, lock: RegisteredLock): UpdateLockResult = mutex.withLock {
+        val current = (mutableState.value as? LockRepositoryState.Loaded)?.locks ?: return@withLock UpdateLockResult.NOT_READY
+        if (current.none { it.id == originalId }) return@withLock UpdateLockResult.NOT_FOUND
+        if (lock.id != originalId && current.any { it.id == lock.id }) return@withLock UpdateLockResult.ALREADY_REGISTERED
+        val updated = current.map { if (it.id == originalId) lock else it }
+        withContext(Dispatchers.IO) { write(updated) }
+        mutableState.value = LockRepositoryState.Loaded(updated)
+        UpdateLockResult.UPDATED
     }
 
     public suspend fun deleteAll() {
