@@ -137,13 +137,13 @@ internal class EditLockViewModel(
                 null
             },
             generalErrorMessage = form.error?.messageFor(FormField.GENERAL),
-            saveButtonEnabled = !form.saving,
+            saveButtonEnabled = !form.saving && !form.qrReading,
         )
     }
 
     private fun save() {
         val form = (state.value as? State.Editing)?.form ?: return
-        if (form.saving) return
+        if (form.saving || form.qrReading) return
         val name = form.name.trim()
         if (name.isEmpty()) return showError(FormError(FormField.NAME, "表示名を入力してください"))
         val edited = when (val original = form.original.credential) {
