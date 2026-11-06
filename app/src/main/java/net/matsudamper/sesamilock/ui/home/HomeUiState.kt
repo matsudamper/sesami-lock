@@ -32,10 +32,17 @@ internal data class HomeUiState(
         val statusTone: Tone,
         val progressVisible: Boolean,
         val warningMessage: String?,
-        val lockButtonEnabled: Boolean,
-        val unlockButtonEnabled: Boolean,
+        val lockButton: ActionButton,
+        val unlockButton: ActionButton,
         val listener: LockCardListener,
     )
+
+    @Immutable
+    sealed interface ActionButton {
+        data class HoldToRun(val enabled: Boolean) : ActionButton
+
+        data object Cancel : ActionButton
+    }
 
     enum class Tone {
         NEUTRAL,
@@ -91,6 +98,8 @@ internal data class HomeUiState(
         fun onUnlockLongPress()
 
         fun onUnlockTap()
+
+        fun onCancelClick()
 
         fun onEditClick()
 

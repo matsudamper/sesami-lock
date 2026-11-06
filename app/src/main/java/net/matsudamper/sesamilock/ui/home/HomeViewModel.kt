@@ -30,6 +30,7 @@ import net.matsudamper.sesamilock.sesame.core.coordinator.StartResult
 import net.matsudamper.sesamilock.sesame.core.model.LockClock
 import net.matsudamper.sesamilock.sesame.core.model.LockDisplayState
 import net.matsudamper.sesamilock.sesame.core.model.LockId
+import net.matsudamper.sesamilock.sesame.core.model.LockIntent
 import net.matsudamper.sesamilock.sesame.core.model.LockRoute
 import net.matsudamper.sesamilock.sesame.core.model.LockSnapshot
 import net.matsudamper.sesamilock.sesame.core.model.RegisteredLock
@@ -214,6 +215,16 @@ internal class HomeViewModel(
         }
         val inProgress = phase as? CommandPhase.InProgress
         val operable = !deviceBusy && !registrationRejected
+        val cancellableIntent = when (phase) {
+            is CommandPhase.Connecting -> phase.intent
+
+            is CommandPhase.Sending -> phase.intent
+
+            is CommandPhase.AwaitingStateVerification,
+            is CommandPhase.Completed,
+            CommandPhase.Idle,
+            -> null
+        }
         val statusIcon = if (credentialInvalid) {
             LockTexts.disconnectedIcon(lock.route)
         } else {
@@ -246,10 +257,16 @@ internal class HomeViewModel(
                 observation?.batteryCritical == true -> "電池残量が少なくなっています"
                 else -> null
             },
-            lockButtonEnabled = operable,
-            unlockButtonEnabled = operable,
+            lockButton = actionButton(LockIntent.LOCK, cancellableIntent, operable),
+            unlockButton = actionButton(LockIntent.UNLOCK, cancellableIntent, operable),
             listener = cardListener(lock),
         )
+    }
+
+    private fun actionButton(intent: LockIntent, cancellableIntent: LockIntent?, operable: Boolean): HomeUiState.ActionButton = if (intent == cancellableIntent) {
+        HomeUiState.ActionButton.Cancel
+    } else {
+        HomeUiState.ActionButton.HoldToRun(enabled = operable)
     }
 
     private fun cardListener(lock: RegisteredLock): HomeUiState.LockCardListener {
@@ -277,6 +294,15 @@ internal class HomeViewModel(
 
         override fun onUnlockTap() {
             showMessage(lock.id, "解錠するには長押ししてください")
+        }
+
+        override fun onCancelClick() {
+            val inProgress = coordinator.phase(lock.id).value as? CommandPhase.InProgress ?: return
+            if (coordinator.cancel(inProgress.requestId)) {
+                coordinator.dismissCompleted(lock.id)
+            } else {
+                showMessage(lock.id, "送信済みのため取り消せませんでした")
+            }
         }
 
         override fun onEditClick() {
