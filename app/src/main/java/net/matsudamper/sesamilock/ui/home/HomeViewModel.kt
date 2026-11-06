@@ -298,7 +298,11 @@ internal class HomeViewModel(
 
         override fun onCancelClick() {
             val inProgress = coordinator.phase(lock.id).value as? CommandPhase.InProgress ?: return
-            if (!coordinator.cancel(inProgress.requestId)) showMessage(lock.id, "送信済みのため取り消せませんでした")
+            if (coordinator.cancel(inProgress.requestId)) {
+                coordinator.dismissCompleted(lock.id)
+            } else {
+                showMessage(lock.id, "送信済みのため取り消せませんでした")
+            }
         }
 
         override fun onEditClick() {
