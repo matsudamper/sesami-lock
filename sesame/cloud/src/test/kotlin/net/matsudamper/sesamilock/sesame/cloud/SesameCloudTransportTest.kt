@@ -14,6 +14,7 @@ import net.matsudamper.sesamilock.sesame.core.model.LockClock
 import net.matsudamper.sesamilock.sesame.core.model.LockCredential
 import net.matsudamper.sesamilock.sesame.core.model.LockId
 import net.matsudamper.sesamilock.sesame.core.model.LockIntent
+import net.matsudamper.sesamilock.sesame.core.model.LockRoute
 import net.matsudamper.sesamilock.sesame.core.model.MechanicalState
 import net.matsudamper.sesamilock.sesame.core.model.RequestId
 import net.matsudamper.sesamilock.sesame.core.model.SesameModel
@@ -24,7 +25,7 @@ import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 
 class SesameCloudTransportTest {
     private val deviceUuid = "8C9A7BB0-1B3C-4F43-9A6E-6C3C2F2B5E01"
-    private val lockId = requireNotNull(LockId.fromDeviceUuid(deviceUuid))
+    private val lockId = requireNotNull(LockId.of(deviceUuid, LockRoute.CLOUD))
     private val clock = object : LockClock {
         override fun elapsedRealtimeMillis(): Long = 10_000
 

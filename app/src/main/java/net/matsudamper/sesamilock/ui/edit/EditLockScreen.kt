@@ -1,6 +1,9 @@
 package net.matsudamper.sesamilock.ui.edit
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -19,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -99,7 +104,7 @@ private fun FormContent(form: EditLockUiState.Content.Form, listener: EditLockUi
             modifier = Modifier.fillMaxWidth(),
         )
         ReadOnlyItem(label = "通信経路", value = form.routeLabel)
-        form.readOnlyDeviceUuid?.let { ReadOnlyItem(label = "UUID", value = it) }
+        form.bleInput?.let { BleInputContent(it, listener) }
         form.cloudInput?.let { CloudInputContent(it, listener) }
         form.generalErrorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
@@ -119,6 +124,39 @@ private fun ReadOnlyItem(label: String, value: String, modifier: Modifier = Modi
     Column(modifier = modifier) {
         Text(label, style = MaterialTheme.typography.titleSmall)
         Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun BleInputContent(input: EditLockUiState.BleInput, listener: EditLockUiState.Listener, modifier: Modifier = Modifier) {
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) listener.onQrImagePicked(uri)
+    }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(
+            onClick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            enabled = input.qrPickButtonEnabled,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                if (input.qrReadingProgressVisible) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(painter = painterResource(R.drawable.ic_qr_code_scanner), contentDescription = null)
+                }
+            }
+            Text("画像から QR コードを読み込む", modifier = Modifier.padding(start = 8.dp))
+        }
+        SecretTextField(
+            value = input.keyText,
+            onValueChange = { listener.onKeyTextChange(it) },
+            label = "鍵データ",
+            singleLine = false,
+            errorMessage = input.keyError,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp),
+        )
     }
 }
 

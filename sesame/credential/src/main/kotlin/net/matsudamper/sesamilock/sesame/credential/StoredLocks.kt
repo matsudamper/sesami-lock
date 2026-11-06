@@ -59,13 +59,13 @@ internal object StoredLocksCodec {
     }
 
     private fun StoredLock.toRegisteredLock(): RegisteredLock? {
-        val id = LockId.fromDeviceUuid(deviceUuid) ?: return null
         val model = SesameModel.fromDeviceModel(deviceModel) ?: return null
         val credential = when {
             ble != null && cloud == null -> LockCredential.Ble(deviceUuid, model, ble.keyIndexHex, ble.secretKeyHex, ble.publicKeyHex)
             cloud != null && ble == null -> LockCredential.Cloud(deviceUuid, model, cloud.apiKey, cloud.secretKeyHex)
             else -> return null
         }
+        val id = LockId.of(deviceUuid, credential.route) ?: return null
         return RegisteredLock(id, displayName, credential)
     }
 }

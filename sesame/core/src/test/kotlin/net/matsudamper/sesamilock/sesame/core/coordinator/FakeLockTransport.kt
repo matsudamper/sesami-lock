@@ -15,6 +15,7 @@ import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.DispatchResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockSnapshotStore
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
+import net.matsudamper.sesamilock.sesame.core.transport.RefreshResult
 import net.matsudamper.sesamilock.sesame.core.transport.SendGate
 import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 
@@ -72,7 +73,8 @@ internal class FakeLockTransport(
         return dispatchResult
     }
 
-    override suspend fun refreshState(lockId: LockId) {
+    override suspend fun refreshState(lockId: LockId): RefreshResult {
         refreshCount += 1
+        return RefreshResult.Refreshed
     }
 }

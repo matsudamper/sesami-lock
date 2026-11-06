@@ -23,7 +23,7 @@ public interface LockTransport {
      */
     public suspend fun dispatchExplicit(lockId: LockId, intent: LockIntent, requestId: RequestId, sendGate: SendGate): DispatchResult
 
-    public suspend fun refreshState(lockId: LockId)
+    public suspend fun refreshState(lockId: LockId): RefreshResult
 }
 
 public fun interface SendGate {
@@ -34,6 +34,12 @@ public sealed interface ConnectionResult {
     public data class Ready(val lockId: LockId, val connectionGeneration: Long) : ConnectionResult
 
     public data class Failed(val error: TransportError) : ConnectionResult
+}
+
+public sealed interface RefreshResult {
+    public data object Refreshed : RefreshResult
+
+    public data class Failed(val error: TransportError) : RefreshResult
 }
 
 public sealed interface DispatchResult {

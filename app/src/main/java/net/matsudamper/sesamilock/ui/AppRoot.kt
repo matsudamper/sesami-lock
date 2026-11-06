@@ -106,7 +106,7 @@ internal fun AppRoot(
             if (lockId == null) {
                 LaunchedEffect(Unit) { destination = Destination.HOME }
             } else {
-                val viewModel = viewModel(key = "edit-lock-$editLockVisit") { EditLockViewModel(graph.repository, graph.coordinator, lockId) }
+                val viewModel = viewModel(key = "edit-lock-$editLockVisit") { EditLockViewModel(graph.repository, graph.coordinator, graph.qrImageDecoder, lockId) }
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
                 EditLockScreen(
                     uiState = uiState,

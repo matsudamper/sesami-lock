@@ -6,6 +6,8 @@ import java.util.UUID
 
 @JvmInline
 public value class LockId private constructor(public val value: String) {
+    public val deviceUuid: String get() = value.substringAfter(SEPARATOR)
+
     public fun shortHash(): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
         return digest.take(SHORT_HASH_BYTES).joinToString("") { "%02x".format(it) }
@@ -15,10 +17,11 @@ public value class LockId private constructor(public val value: String) {
 
     public companion object {
         private const val SHORT_HASH_BYTES = 4
+        private const val SEPARATOR = ':'
 
-        public fun fromDeviceUuid(deviceUuid: String): LockId? {
+        public fun of(deviceUuid: String, route: LockRoute): LockId? {
             val uuid = runCatching { UUID.fromString(deviceUuid) }.getOrNull() ?: return null
-            return LockId(uuid.toString().uppercase(Locale.ROOT))
+            return LockId("${route.name}$SEPARATOR${uuid.toString().uppercase(Locale.ROOT)}")
         }
     }
 }

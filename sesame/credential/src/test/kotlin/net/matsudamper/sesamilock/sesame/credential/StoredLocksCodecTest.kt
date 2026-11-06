@@ -6,6 +6,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import net.matsudamper.sesamilock.sesame.core.model.LockCredential
 import net.matsudamper.sesamilock.sesame.core.model.LockId
+import net.matsudamper.sesamilock.sesame.core.model.LockRoute
 import net.matsudamper.sesamilock.sesame.core.model.RegisteredLock
 import net.matsudamper.sesamilock.sesame.core.model.SesameModel
 
@@ -15,13 +16,13 @@ class StoredLocksCodecTest {
     @Test
     fun roundTripsBleAndCloudLocks() {
         val ble = RegisteredLock(
-            id = requireNotNull(LockId.fromDeviceUuid(uuid)),
+            id = requireNotNull(LockId.of(uuid, LockRoute.BLE)),
             displayName = "玄関",
             credential = LockCredential.Ble(uuid, SesameModel.SESAME_5, "0000", "0102030405060708090a0b0c0d0e0f10", "a1b2c3d4"),
         )
         val cloudUuid = "11111111-2222-3333-4444-555555555555"
         val cloud = RegisteredLock(
-            id = requireNotNull(LockId.fromDeviceUuid(cloudUuid)),
+            id = requireNotNull(LockId.of(cloudUuid, LockRoute.CLOUD)),
             displayName = "勝手口",
             credential = LockCredential.Cloud(cloudUuid, SesameModel.SESAME_4, "api", "0102030405060708090a0b0c0d0e0f10"),
         )

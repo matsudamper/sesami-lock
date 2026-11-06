@@ -48,7 +48,8 @@ internal data class HomeUiState(
         UNLOCKED,
         MOVING,
         UNKNOWN,
-        DISCONNECTED,
+        BLUETOOTH_DISCONNECTED,
+        CLOUD_DISCONNECTED,
     }
 
     @Immutable

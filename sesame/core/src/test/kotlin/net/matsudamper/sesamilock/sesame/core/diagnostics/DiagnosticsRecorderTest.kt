@@ -22,7 +22,7 @@ class DiagnosticsRecorderTest {
     fun exportContainsTimingsButNotFullDeviceId() {
         val recorder = DiagnosticsRecorder(clock, capacity = 10)
         val requestId = RequestId("r1")
-        recorder.start(requestId, requireNotNull(LockId.fromDeviceUuid(deviceUuid)), LockRoute.BLE, LockIntent.LOCK)
+        recorder.start(requestId, requireNotNull(LockId.of(deviceUuid, LockRoute.BLE)), LockRoute.BLE, LockIntent.LOCK)
         now += 120
         recorder.mark(requestId, DiagnosticPoint.REQUEST_SENT)
         recorder.finish(requestId, "VERIFIED", null)
@@ -36,7 +36,7 @@ class DiagnosticsRecorderTest {
     @Test
     fun keepsOnlyLatestRecords() {
         val recorder = DiagnosticsRecorder(clock, capacity = 2)
-        val lockId = requireNotNull(LockId.fromDeviceUuid(deviceUuid))
+        val lockId = requireNotNull(LockId.of(deviceUuid, LockRoute.BLE))
         repeat(3) { recorder.start(RequestId("r$it"), lockId, LockRoute.BLE, LockIntent.LOCK) }
 
         assertEquals(listOf("r2", "r1"), recorder.records.value.map { it.requestId.value })

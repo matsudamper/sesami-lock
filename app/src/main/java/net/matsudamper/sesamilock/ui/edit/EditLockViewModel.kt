@@ -1,5 +1,6 @@
 package net.matsudamper.sesamilock.ui.edit
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.Locale
@@ -12,8 +13,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.matsudamper.sesamilock.QrImageDecoder
 import net.matsudamper.sesamilock.sesame.core.coordinator.CommandPhase
 import net.matsudamper.sesamilock.sesame.core.coordinator.LockCommandCoordinator
+import net.matsudamper.sesamilock.sesame.core.key.KeyImportError
+import net.matsudamper.sesamilock.sesame.core.key.KeyImportResult
+import net.matsudamper.sesamilock.sesame.core.key.SesameKeyImporter
 import net.matsudamper.sesamilock.sesame.core.model.LockCredential
 import net.matsudamper.sesamilock.sesame.core.model.LockId
 import net.matsudamper.sesamilock.sesame.core.model.LockRoute
@@ -22,10 +27,12 @@ import net.matsudamper.sesamilock.sesame.core.model.SesameModel
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.sesame.credential.LockRepositoryState
 import net.matsudamper.sesamilock.sesame.credential.UpdateLockResult
+import net.matsudamper.sesamilock.ui.add.message
 
 internal class EditLockViewModel(
     private val repository: EncryptedLockRepository,
     private val coordinator: LockCommandCoordinator,
+    private val qrImageDecoder: QrImageDecoder,
     private val lockId: LockId,
 ) : ViewModel() {
     private val state = MutableStateFlow<State>(State.Loading)
@@ -33,6 +40,14 @@ internal class EditLockViewModel(
     private val listener = object : EditLockUiState.Listener {
         override fun onNameChange(value: String) {
             updateForm { it.copy(name = value, error = null) }
+        }
+
+        override fun onKeyTextChange(value: String) {
+            updateForm { it.copy(keyText = value, error = null) }
+        }
+
+        override fun onQrImagePicked(uri: Uri) {
+            readQrImage(uri)
         }
 
         override fun onDeviceUuidChange(value: String) {
@@ -88,7 +103,16 @@ internal class EditLockViewModel(
                 LockRoute.BLE -> "Bluetooth"
                 LockRoute.CLOUD -> "クラウド"
             },
-            readOnlyDeviceUuid = (credential as? LockCredential.Ble)?.deviceUuid,
+            bleInput = if (credential is LockCredential.Ble) {
+                EditLockUiState.BleInput(
+                    keyText = form.keyText,
+                    keyError = form.error?.messageFor(FormField.KEY),
+                    qrReadingProgressVisible = form.qrReading,
+                    qrPickButtonEnabled = !form.qrReading,
+                )
+            } else {
+                null
+            },
             cloudInput = if (credential is LockCredential.Cloud) {
                 EditLockUiState.CloudInput(
                     deviceUuid = form.deviceUuid,
@@ -113,17 +137,17 @@ internal class EditLockViewModel(
                 null
             },
             generalErrorMessage = form.error?.messageFor(FormField.GENERAL),
-            saveButtonEnabled = !form.saving,
+            saveButtonEnabled = !form.saving && !form.qrReading,
         )
     }
 
     private fun save() {
         val form = (state.value as? State.Editing)?.form ?: return
-        if (form.saving) return
+        if (form.saving || form.qrReading) return
         val name = form.name.trim()
         if (name.isEmpty()) return showError(FormError(FormField.NAME, "表示名を入力してください"))
         val edited = when (val original = form.original.credential) {
-            is LockCredential.Ble -> form.original.id to original
+            is LockCredential.Ble -> editedBle(original, form) ?: return
             is LockCredential.Cloud -> editedCloud(original, form) ?: return
         }
         val (newId, credential) = edited
@@ -135,15 +159,57 @@ internal class EditLockViewModel(
             val result = repository.update(form.original.id, RegisteredLock(id = newId, displayName = name, credential = credential))
             when (result) {
                 UpdateLockResult.UPDATED -> state.value = State.Closed
-                UpdateLockResult.ALREADY_REGISTERED -> showSaveFailure(FormError(FormField.DEVICE_UUID, "この UUID の鍵はすでに登録されています"))
+
+                UpdateLockResult.ALREADY_REGISTERED -> showSaveFailure(
+                    when (credential.route) {
+                        LockRoute.BLE -> FormError(FormField.KEY, "この UUID の Bluetooth の鍵はすでに登録されています")
+                        LockRoute.CLOUD -> FormError(FormField.DEVICE_UUID, "この UUID のクラウドの鍵はすでに登録されています")
+                    },
+                )
+
                 UpdateLockResult.NOT_FOUND -> showSaveFailure(FormError(FormField.GENERAL, "この鍵は削除されています"))
+
                 UpdateLockResult.NOT_READY -> showSaveFailure(FormError(FormField.GENERAL, "保存領域を読み込めていません"))
             }
         }
     }
 
+    private fun readQrImage(uri: Uri) {
+        val form = (state.value as? State.Editing)?.form ?: return
+        if (form.qrReading) return
+        updateForm { it.copy(qrReading = true, error = null) }
+        viewModelScope.launch {
+            val text = runCatching { qrImageDecoder.decode(uri) }.getOrNull()
+            updateForm { current ->
+                if (text == null) {
+                    current.copy(qrReading = false, error = FormError(FormField.KEY, "画像から QR コードを読み取れませんでした"))
+                } else {
+                    current.copy(qrReading = false, keyText = text)
+                }
+            }
+        }
+    }
+
+    private fun editedBle(original: LockCredential.Ble, form: Form): Pair<LockId, LockCredential.Ble>? {
+        if (form.keyText == SesameKeyImporter.exportJson(original)) return form.original.id to original
+        val credential = when (val result = SesameKeyImporter.import(form.keyText)) {
+            is KeyImportResult.Failure -> {
+                showError(FormError(FormField.KEY, result.error.message()))
+                return null
+            }
+
+            is KeyImportResult.Success -> result.credential
+        }
+        val id = LockId.of(credential.deviceUuid, LockRoute.BLE)
+        if (id == null) {
+            showError(FormError(FormField.KEY, KeyImportError.INVALID_UUID.message()))
+            return null
+        }
+        return id to credential
+    }
+
     private fun editedCloud(original: LockCredential.Cloud, form: Form): Pair<LockId, LockCredential.Cloud>? {
-        val id = LockId.fromDeviceUuid(form.deviceUuid.trim())
+        val id = LockId.of(form.deviceUuid.trim(), LockRoute.CLOUD)
         if (id == null) {
             showError(FormError(FormField.DEVICE_UUID, "UUID の形式が正しくありません"))
             return null
@@ -158,14 +224,14 @@ internal class EditLockViewModel(
             showError(FormError(FormField.SECRET_KEY, "32 桁の 16 進数で入力してください"))
             return null
         }
-        val unchanged = id.value == original.deviceUuid &&
+        val unchanged = id.deviceUuid == original.deviceUuid &&
             apiKey == original.apiKey &&
             secret == original.secretKeyHex &&
             form.cloudModel == original.model
         val credential = if (unchanged) {
             original
         } else {
-            LockCredential.Cloud(deviceUuid = id.value, model = form.cloudModel, apiKey = apiKey, secretKeyHex = secret)
+            LockCredential.Cloud(deviceUuid = id.deviceUuid, model = form.cloudModel, apiKey = apiKey, secretKeyHex = secret)
         }
         return id to credential
     }
@@ -192,6 +258,7 @@ internal class EditLockViewModel(
 
     private enum class FormField {
         NAME,
+        KEY,
         DEVICE_UUID,
         API_KEY,
         SECRET_KEY,
@@ -205,6 +272,8 @@ internal class EditLockViewModel(
     private data class Form(
         val original: RegisteredLock,
         val name: String,
+        val keyText: String,
+        val qrReading: Boolean,
         val deviceUuid: String,
         val apiKey: String,
         val secretKey: String,
@@ -217,9 +286,12 @@ internal class EditLockViewModel(
         companion object {
             fun from(lock: RegisteredLock): Form {
                 val cloud = lock.credential as? LockCredential.Cloud
+                val ble = lock.credential as? LockCredential.Ble
                 return Form(
                     original = lock,
                     name = lock.displayName,
+                    keyText = ble?.let(SesameKeyImporter::exportJson).orEmpty(),
+                    qrReading = false,
                     deviceUuid = cloud?.deviceUuid.orEmpty(),
                     apiKey = cloud?.apiKey.orEmpty(),
                     secretKey = cloud?.secretKeyHex.orEmpty(),

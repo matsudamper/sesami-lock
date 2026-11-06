@@ -1,5 +1,6 @@
 package net.matsudamper.sesamilock.ui.edit
 
+import android.net.Uri
 import androidx.compose.runtime.Immutable
 
 @Immutable
@@ -16,12 +17,20 @@ internal data class EditLockUiState(
             val name: String,
             val nameError: String?,
             val routeLabel: String,
-            val readOnlyDeviceUuid: String?,
+            val bleInput: BleInput?,
             val cloudInput: CloudInput?,
             val generalErrorMessage: String?,
             val saveButtonEnabled: Boolean,
         ) : Content
     }
+
+    @Immutable
+    data class BleInput(
+        val keyText: String,
+        val keyError: String?,
+        val qrReadingProgressVisible: Boolean,
+        val qrPickButtonEnabled: Boolean,
+    )
 
     @Immutable
     data class CloudInput(
@@ -43,6 +52,10 @@ internal data class EditLockUiState(
 
     interface Listener {
         fun onNameChange(value: String)
+
+        fun onKeyTextChange(value: String)
+
+        fun onQrImagePicked(uri: Uri)
 
         fun onDeviceUuidChange(value: String)
 

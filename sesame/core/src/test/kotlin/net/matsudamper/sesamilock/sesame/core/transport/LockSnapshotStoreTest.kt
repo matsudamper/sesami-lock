@@ -12,7 +12,7 @@ import net.matsudamper.sesamilock.sesame.core.model.MechanicalObservation
 import net.matsudamper.sesamilock.sesame.core.model.MechanicalState
 
 class LockSnapshotStoreTest {
-    private val lockId = requireNotNull(LockId.fromDeviceUuid("8c9a7bb0-1b3c-4f43-9a6e-6c3c2f2b5e01"))
+    private val lockId = requireNotNull(LockId.of("8c9a7bb0-1b3c-4f43-9a6e-6c3c2f2b5e01", LockRoute.BLE))
 
     private fun observation(state: MechanicalState, at: Long, generation: Long) = MechanicalObservation(
         state = state,

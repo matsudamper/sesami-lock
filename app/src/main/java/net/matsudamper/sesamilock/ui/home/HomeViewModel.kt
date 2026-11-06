@@ -3,6 +3,7 @@ package net.matsudamper.sesamilock.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -35,6 +36,8 @@ import net.matsudamper.sesamilock.sesame.core.model.RegisteredLock
 import net.matsudamper.sesamilock.sesame.core.model.toDisplayState
 import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
+import net.matsudamper.sesamilock.sesame.core.transport.RefreshResult
+import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.sesame.credential.LockRepositoryState
 import net.matsudamper.sesamilock.ui.edit.EditLockSelection
@@ -53,6 +56,7 @@ internal class HomeViewModel(
             pendingDeleteLockId = null,
             blePermissionsGranted = blePermissions.isGranted(),
             messages = mapOf(),
+            invalidCredentialLockIds = setOf(),
             pullRefreshing = false,
             editScreenRequested = false,
         ),
@@ -156,7 +160,18 @@ internal class HomeViewModel(
                 is LocksModel.Loaded -> if (models.isEmpty()) {
                     HomeUiState.Content.Empty
                 } else {
-                    HomeUiState.Content.Locks(models.map { createCard(it, now, it.lock.id in rejectedLockIds) })
+                    val busyDeviceUuids = models.filter { it.phase is CommandPhase.InProgress }.map { it.lock.id.deviceUuid }.toSet()
+                    HomeUiState.Content.Locks(
+                        models.map {
+                            createCard(
+                                model = it,
+                                now = now,
+                                registrationRejected = it.lock.id in rejectedLockIds,
+                                deviceBusy = it.lock.id.deviceUuid in busyDeviceUuids,
+                                credentialInvalid = it.lock.id in view.invalidCredentialLockIds,
+                            )
+                        },
+                    )
                 }
             },
             permissionBanner = if (needsBlePermission) {
@@ -172,9 +187,19 @@ internal class HomeViewModel(
         )
     }
 
-    private fun createCard(model: LockModel, now: Long, registrationRejected: Boolean): HomeUiState.LockCard {
+    private fun createCard(
+        model: LockModel,
+        now: Long,
+        registrationRejected: Boolean,
+        deviceBusy: Boolean,
+        credentialInvalid: Boolean,
+    ): HomeUiState.LockCard {
         val lock = model.lock
-        val displayState = model.snapshot.toDisplayState(now, STATE_FRESHNESS)
+        val freshness = when (lock.route) {
+            LockRoute.BLE -> BLE_STATE_FRESHNESS
+            LockRoute.CLOUD -> Duration.INFINITE
+        }
+        val displayState = model.snapshot.toDisplayState(now, freshness)
         val observation = model.snapshot.observation
         val phase = model.phase
         val nowWall = clock.currentTimeMillis()
@@ -183,25 +208,36 @@ internal class HomeViewModel(
             observation == null -> "${lock.model.displayName} ・ ${LockTexts.route(lock.route)}"
 
             displayState == LockDisplayState.STALE || displayState == LockDisplayState.DISCONNECTED ->
-                "前回は${LockTexts.previousState(observation.state)}（$observedAgo）"
+                "${LockTexts.previousState(observation.state)}（$observedAgo）"
 
             else -> "$observedAgo に確認 ・ ${LockTexts.route(lock.route)}"
         }
         val inProgress = phase as? CommandPhase.InProgress
-        val operable = inProgress == null && !registrationRejected
+        val operable = !deviceBusy && !registrationRejected
+        val statusIcon = if (credentialInvalid) {
+            LockTexts.disconnectedIcon(lock.route)
+        } else {
+            LockTexts.statusIcon(displayState, lock.route)
+        }
+        val statusLabel = when {
+            inProgress != null -> LockTexts.inProgress(inProgress)
+            credentialInvalid -> "接続情報が間違っています"
+            else -> LockTexts.status(displayState, lock.route)
+        }
         return HomeUiState.LockCard(
             name = lock.displayName,
             detail = detail,
-            statusLabel = inProgress?.let(LockTexts::inProgress) ?: LockTexts.status(displayState),
-            statusIcon = LockTexts.statusIcon(displayState),
-            statusTone = when (LockTexts.statusIcon(displayState)) {
+            statusLabel = statusLabel,
+            statusIcon = statusIcon,
+            statusTone = when (statusIcon) {
                 HomeUiState.StatusIcon.LOCKED -> HomeUiState.Tone.LOCKED
 
                 HomeUiState.StatusIcon.UNLOCKED -> HomeUiState.Tone.UNLOCKED
 
                 HomeUiState.StatusIcon.MOVING,
                 HomeUiState.StatusIcon.UNKNOWN,
-                HomeUiState.StatusIcon.DISCONNECTED,
+                HomeUiState.StatusIcon.BLUETOOTH_DISCONNECTED,
+                HomeUiState.StatusIcon.CLOUD_DISCONNECTED,
                 -> HomeUiState.Tone.NEUTRAL
             },
             progressVisible = inProgress != null,
@@ -312,15 +348,47 @@ internal class HomeViewModel(
                 LockRoute.BLE -> {
                     val result = withTimeoutOrNull(OBSERVATION_CONNECT_TIMEOUT) { transport.ensureConnected(lock.id) }
                     when (result) {
-                        null -> showMessage(lock.id, "SESAME が見つかりませんでした。近くで操作してください")
-                        is ConnectionResult.Failed -> showMessage(lock.id, LockTexts.error(result.error))
-                        is ConnectionResult.Ready -> clearMessage(lock.id)
+                        null -> Unit
+                        is ConnectionResult.Failed -> onRefreshFailed(lock.id, result.error)
+                        is ConnectionResult.Ready -> onRefreshed(lock.id)
                     }
                 }
 
-                LockRoute.CLOUD -> transport.refreshState(lock.id)
+                LockRoute.CLOUD -> when (val result = transport.refreshState(lock.id)) {
+                    RefreshResult.Refreshed -> onRefreshed(lock.id)
+                    is RefreshResult.Failed -> onRefreshFailed(lock.id, result.error)
+                }
             }
         }.also { refreshJobs[lock.id] = it }
+    }
+
+    private fun onRefreshed(lockId: LockId) {
+        clearMessage(lockId)
+        viewState.update { it.copy(invalidCredentialLockIds = it.invalidCredentialLockIds - lockId) }
+    }
+
+    private fun onRefreshFailed(lockId: LockId, error: TransportError) {
+        when (error) {
+            TransportError.AUTHENTICATION_FAILED,
+            TransportError.SERVER_AUTHORIZATION_REQUIRED,
+            TransportError.HTTP_CLIENT_ERROR,
+            -> viewState.update { it.copy(invalidCredentialLockIds = it.invalidCredentialLockIds + lockId) }
+
+            TransportError.NETWORK,
+            TransportError.TIMEOUT,
+            -> showMessage(lockId, LockTexts.error(error))
+
+            TransportError.PERMISSION_DENIED,
+            TransportError.BLUETOOTH_OFF,
+            TransportError.DEVICE_NOT_REGISTERED,
+            TransportError.UNSUPPORTED_DEVICE,
+            TransportError.NOT_CONNECTED,
+            TransportError.HTTP_SERVER_ERROR,
+            TransportError.INVALID_RESPONSE,
+            TransportError.DEVICE_ERROR,
+            TransportError.UNKNOWN,
+            -> Unit
+        }
     }
 
     private fun showMessage(lockId: LockId, message: String) {
@@ -337,6 +405,7 @@ internal class HomeViewModel(
         val pendingDeleteLockId: LockId?,
         val blePermissionsGranted: Boolean,
         val messages: Map<LockId, String>,
+        val invalidCredentialLockIds: Set<LockId>,
         val pullRefreshing: Boolean,
         val editScreenRequested: Boolean,
     )
@@ -356,7 +425,7 @@ internal class HomeViewModel(
     }
 
     private companion object {
-        private val STATE_FRESHNESS = 5.seconds
+        private val BLE_STATE_FRESHNESS = 5.seconds
         private val OBSERVATION_CONNECT_TIMEOUT = 15.seconds
     }
 }
