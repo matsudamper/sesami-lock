@@ -16,7 +16,6 @@ if [ -f local.properties ]; then
   sdk_dir_in_local_properties="$(sed -n 's/^[[:space:]]*sdk\.dir[[:space:]]*=[[:space:]]*\(.*\)$/\1/p' local.properties | tail -n 1)"
 fi
 ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-${sdk_dir_in_local_properties:-${HOME}/android-sdk}}}"
-SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
 ANDROID_CLI="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/android"
 
 compile_sdk_major="$(sed -n -E \
@@ -63,11 +62,10 @@ if [ ! -f "${ANDROID_SDK_ROOT}/platforms/${platform}/android.jar" ] ||
   fi
 
   echo "[setup] Android SDK パッケージを導入する (${platform})"
-  { for _ in $(seq 1 200); do printf 'y\n'; done; } | "${SDKMANAGER}" --sdk_root="${ANDROID_SDK_ROOT}" --licenses > /dev/null
-  "${SDKMANAGER}" --sdk_root="${ANDROID_SDK_ROOT}" --install \
+  "${ANDROID_CLI}" --sdk="${ANDROID_SDK_ROOT}" sdk install \
     "platform-tools" \
-    "platforms;${platform}" \
-    "build-tools;${BUILD_TOOLS_VERSION}" > /dev/null
+    "platforms/${platform}" \
+    "build-tools/${BUILD_TOOLS_VERSION}" < /dev/null > /dev/null
 fi
 
 tmp_local_properties="$(mktemp ./.local.properties.XXXXXX)"
