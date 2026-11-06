@@ -76,7 +76,8 @@ echo "sdk.dir=${ANDROID_SDK_ROOT}" >> "${tmp_local_properties}"
 mv "${tmp_local_properties}" local.properties
 
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
-  echo "export PATH=\"${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:\$PATH\"" >> "${CLAUDE_ENV_FILE}"
+  path_export="export PATH=$(printf '%q' "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin"):\$PATH"
+  grep -qxF "${path_export}" "${CLAUDE_ENV_FILE}" 2>/dev/null || echo "${path_export}" >> "${CLAUDE_ENV_FILE}"
 fi
 
 android_user_home="${ANDROID_USER_HOME:-${HOME}/.android}"
