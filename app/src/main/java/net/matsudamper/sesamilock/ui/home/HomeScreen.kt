@@ -339,7 +339,8 @@ private fun StatusBadge(icon: HomeUiState.StatusIcon, tone: HomeUiState.Tone, pr
                         HomeUiState.StatusIcon.UNLOCKED -> R.drawable.ic_lock_open
                         HomeUiState.StatusIcon.MOVING -> R.drawable.ic_sync
                         HomeUiState.StatusIcon.UNKNOWN -> R.drawable.ic_question_mark
-                        HomeUiState.StatusIcon.DISCONNECTED -> R.drawable.ic_bluetooth_disabled
+                        HomeUiState.StatusIcon.BLUETOOTH_DISCONNECTED -> R.drawable.ic_bluetooth_disabled
+                        HomeUiState.StatusIcon.CLOUD_DISCONNECTED -> R.drawable.ic_cloud_off
                     },
                 ),
                 contentDescription = null,

@@ -35,20 +35,43 @@ internal object LockTexts {
         }
     }
 
-    fun status(state: LockDisplayState): String = when (state) {
+    fun status(state: LockDisplayState, route: LockRoute): String = when (state) {
         LockDisplayState.LOCKED_VERIFIED -> "施錠中"
+
         LockDisplayState.UNLOCKED_VERIFIED, LockDisplayState.OUT_OF_LOCK_RANGE -> "解錠中"
+
         LockDisplayState.MOVING -> "動作中"
+
         LockDisplayState.UNKNOWN -> "状態を確認しています"
-        LockDisplayState.STALE, LockDisplayState.DISCONNECTED -> "接続していません"
+
+        LockDisplayState.STALE -> when (route) {
+            LockRoute.BLE -> "接続していません"
+            LockRoute.CLOUD -> "最新の状態ではありません"
+        }
+
+        LockDisplayState.DISCONNECTED -> "接続していません"
     }
 
-    fun statusIcon(state: LockDisplayState): HomeUiState.StatusIcon = when (state) {
+    fun statusIcon(state: LockDisplayState, route: LockRoute): HomeUiState.StatusIcon = when (state) {
         LockDisplayState.LOCKED_VERIFIED -> HomeUiState.StatusIcon.LOCKED
+
         LockDisplayState.UNLOCKED_VERIFIED, LockDisplayState.OUT_OF_LOCK_RANGE -> HomeUiState.StatusIcon.UNLOCKED
+
         LockDisplayState.MOVING -> HomeUiState.StatusIcon.MOVING
+
         LockDisplayState.UNKNOWN -> HomeUiState.StatusIcon.UNKNOWN
-        LockDisplayState.STALE, LockDisplayState.DISCONNECTED -> HomeUiState.StatusIcon.DISCONNECTED
+
+        LockDisplayState.STALE -> when (route) {
+            LockRoute.BLE -> HomeUiState.StatusIcon.BLUETOOTH_DISCONNECTED
+            LockRoute.CLOUD -> HomeUiState.StatusIcon.UNKNOWN
+        }
+
+        LockDisplayState.DISCONNECTED -> disconnectedIcon(route)
+    }
+
+    fun disconnectedIcon(route: LockRoute): HomeUiState.StatusIcon = when (route) {
+        LockRoute.BLE -> HomeUiState.StatusIcon.BLUETOOTH_DISCONNECTED
+        LockRoute.CLOUD -> HomeUiState.StatusIcon.CLOUD_DISCONNECTED
     }
 
     fun inProgress(phase: CommandPhase.InProgress): String = when (phase) {

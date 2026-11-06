@@ -3,6 +3,7 @@ package net.matsudamper.sesamilock.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -158,7 +159,14 @@ internal class HomeViewModel(
                 } else {
                     val busyDeviceUuids = models.filter { it.phase is CommandPhase.InProgress }.map { it.lock.id.deviceUuid }.toSet()
                     HomeUiState.Content.Locks(
-                        models.map { createCard(it, now, it.lock.id in rejectedLockIds, it.lock.id.deviceUuid in busyDeviceUuids) },
+                        models.map {
+                            createCard(
+                                model = it,
+                                now = now,
+                                registrationRejected = it.lock.id in rejectedLockIds,
+                                deviceBusy = it.lock.id.deviceUuid in busyDeviceUuids,
+                            )
+                        },
                     )
                 }
             },
@@ -175,9 +183,18 @@ internal class HomeViewModel(
         )
     }
 
-    private fun createCard(model: LockModel, now: Long, registrationRejected: Boolean, deviceBusy: Boolean): HomeUiState.LockCard {
+    private fun createCard(
+        model: LockModel,
+        now: Long,
+        registrationRejected: Boolean,
+        deviceBusy: Boolean,
+    ): HomeUiState.LockCard {
         val lock = model.lock
-        val displayState = model.snapshot.toDisplayState(now, STATE_FRESHNESS)
+        val freshness = when (lock.route) {
+            LockRoute.BLE -> BLE_STATE_FRESHNESS
+            LockRoute.CLOUD -> Duration.INFINITE
+        }
+        val displayState = model.snapshot.toDisplayState(now, freshness)
         val observation = model.snapshot.observation
         val phase = model.phase
         val nowWall = clock.currentTimeMillis()
@@ -186,25 +203,28 @@ internal class HomeViewModel(
             observation == null -> "${lock.model.displayName} ・ ${LockTexts.route(lock.route)}"
 
             displayState == LockDisplayState.STALE || displayState == LockDisplayState.DISCONNECTED ->
-                "前回は${LockTexts.previousState(observation.state)}（$observedAgo）"
+                "${LockTexts.previousState(observation.state)}（$observedAgo）"
 
             else -> "$observedAgo に確認 ・ ${LockTexts.route(lock.route)}"
         }
         val inProgress = phase as? CommandPhase.InProgress
         val operable = !deviceBusy && !registrationRejected
+        val statusIcon = LockTexts.statusIcon(displayState, lock.route)
+        val statusLabel = inProgress?.let(LockTexts::inProgress) ?: LockTexts.status(displayState, lock.route)
         return HomeUiState.LockCard(
             name = lock.displayName,
             detail = detail,
-            statusLabel = inProgress?.let(LockTexts::inProgress) ?: LockTexts.status(displayState),
-            statusIcon = LockTexts.statusIcon(displayState),
-            statusTone = when (LockTexts.statusIcon(displayState)) {
+            statusLabel = statusLabel,
+            statusIcon = statusIcon,
+            statusTone = when (statusIcon) {
                 HomeUiState.StatusIcon.LOCKED -> HomeUiState.Tone.LOCKED
 
                 HomeUiState.StatusIcon.UNLOCKED -> HomeUiState.Tone.UNLOCKED
 
                 HomeUiState.StatusIcon.MOVING,
                 HomeUiState.StatusIcon.UNKNOWN,
-                HomeUiState.StatusIcon.DISCONNECTED,
+                HomeUiState.StatusIcon.BLUETOOTH_DISCONNECTED,
+                HomeUiState.StatusIcon.CLOUD_DISCONNECTED,
                 -> HomeUiState.Tone.NEUTRAL
             },
             progressVisible = inProgress != null,
@@ -359,7 +379,7 @@ internal class HomeViewModel(
     }
 
     private companion object {
-        private val STATE_FRESHNESS = 5.seconds
+        private val BLE_STATE_FRESHNESS = 5.seconds
         private val OBSERVATION_CONNECT_TIMEOUT = 15.seconds
     }
 }
