@@ -302,7 +302,7 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
                 )
                 HoldToActivateButton(
                     text = "解錠",
-                    icon = painterResource(R.drawable.ic_lock_open),
+                    icon = painterResource(R.drawable.ic_lock_open_right),
                     enabled = card.unlockButtonEnabled,
                     holdMillis = ActionHoldMillis,
                     containerColor = statusColors.unlockedContainer,
@@ -336,7 +336,7 @@ private fun StatusBadge(icon: HomeUiState.StatusIcon, tone: HomeUiState.Tone, pr
                 painter = painterResource(
                     when (icon) {
                         HomeUiState.StatusIcon.LOCKED -> R.drawable.ic_lock
-                        HomeUiState.StatusIcon.UNLOCKED -> R.drawable.ic_lock_open
+                        HomeUiState.StatusIcon.UNLOCKED -> R.drawable.ic_lock_open_right
                         HomeUiState.StatusIcon.MOVING -> R.drawable.ic_sync
                         HomeUiState.StatusIcon.UNKNOWN -> R.drawable.ic_question_mark
                         HomeUiState.StatusIcon.BLUETOOTH_DISCONNECTED -> R.drawable.ic_bluetooth_disabled
