@@ -27,6 +27,7 @@ import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.DispatchResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockSnapshotStore
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
+import net.matsudamper.sesamilock.sesame.core.transport.RefreshResult
 import net.matsudamper.sesamilock.sesame.core.transport.SendGate
 import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 
@@ -60,7 +61,7 @@ public class SesameCloudTransport internal constructor(
 
     override suspend fun ensureConnected(lockId: LockId): ConnectionResult {
         if (!credentials.containsKey(lockId)) return ConnectionResult.Failed(TransportError.DEVICE_NOT_REGISTERED)
-        val baselineKnown = fetchShadow(lockId)
+        val baselineKnown = (fetchShadow(lockId) as? ShadowFetch.Fetched)?.baselineKnown == true
         val generation = if (baselineKnown) shadowVersion(lockId).current() else UNVERIFIABLE_GENERATION
         return ConnectionResult.Ready(lockId, generation)
     }
@@ -100,28 +101,37 @@ public class SesameCloudTransport internal constructor(
         }
     }
 
-    override suspend fun refreshState(lockId: LockId) {
-        fetchShadow(lockId)
+    override suspend fun refreshState(lockId: LockId): RefreshResult = when (val result = fetchShadow(lockId)) {
+        is ShadowFetch.Fetched -> RefreshResult.Refreshed
+        is ShadowFetch.Failed -> RefreshResult.Failed(result.error)
     }
 
     /**
      * Shadow を取得して観測として反映する。Shadow は Hub の切断などで古い値を返し続けることがあるため、
      * 応答の `timestamp` が前回と変わったときだけ世代を進め、変わらない Shadow を新しい観測として扱わない。
      * 単位が資料で確定しないので、`timestamp` は値の比較にだけ使い時刻として解釈しない。
-     * @return 世代の基準になる `timestamp` を取得できたら true
      */
-    private suspend fun fetchShadow(lockId: LockId): Boolean {
-        val credential = credentials[lockId] ?: return false
-        val url = deviceUrl(credential, "") ?: return false
+    private suspend fun fetchShadow(lockId: LockId): ShadowFetch {
+        val credential = credentials[lockId] ?: return ShadowFetch.Failed(TransportError.DEVICE_NOT_REGISTERED)
+        val url = deviceUrl(credential, "") ?: return ShadowFetch.Failed(TransportError.DEVICE_NOT_REGISTERED)
         val request = HttpRequest(
             method = "GET",
             url = url,
             headers = mapOf("x-api-key" to credential.apiKey),
             body = null,
         )
-        val response = http.execute(request, beforeSend = { true }) as? HttpResult.Response ?: return false
-        if (response.statusCode !in 200..299) return false
-        val shadow = parseShadow(response.body) ?: return false
+        val response = when (val result = http.execute(request, beforeSend = { true })) {
+            is HttpResult.Response -> result
+            HttpResult.NotConnected, HttpResult.Interrupted -> return ShadowFetch.Failed(TransportError.NETWORK)
+            HttpResult.TimedOut -> return ShadowFetch.Failed(TransportError.TIMEOUT)
+            HttpResult.NotSentByGate -> return ShadowFetch.Failed(TransportError.UNKNOWN)
+        }
+        when (response.statusCode) {
+            in 200..299 -> Unit
+            in 400..499 -> return ShadowFetch.Failed(TransportError.HTTP_CLIENT_ERROR)
+            else -> return ShadowFetch.Failed(TransportError.HTTP_SERVER_ERROR)
+        }
+        val shadow = parseShadow(response.body) ?: return ShadowFetch.Failed(TransportError.INVALID_RESPONSE)
         val generation = shadowVersion(lockId).advanceIfChanged(shadow.rawTimestamp)
         val store = store(lockId)
         store.updateConnection(ConnectionState.AUTHENTICATED, generation)
@@ -134,7 +144,7 @@ public class SesameCloudTransport internal constructor(
                 batteryCritical = false,
             ),
         )
-        return shadow.rawTimestamp != null
+        return ShadowFetch.Fetched(baselineKnown = shadow.rawTimestamp != null)
     }
 
     private fun shadowVersion(lockId: LockId): ShadowVersion = shadowVersions.getOrPut(lockId) { ShadowVersion() }
@@ -178,6 +188,12 @@ public class SesameCloudTransport internal constructor(
 }
 
 internal data class Shadow(val state: MechanicalState, val rawTimestamp: String?)
+
+private sealed interface ShadowFetch {
+    data class Fetched(val baselineKnown: Boolean) : ShadowFetch
+
+    data class Failed(val error: TransportError) : ShadowFetch
+}
 
 private class ShadowVersion {
     private var version = 1L

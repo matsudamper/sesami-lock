@@ -31,7 +31,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -39,6 +38,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -100,7 +100,13 @@ internal fun HomeScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
+        PullToRefreshBox(
+            isRefreshing = uiState.pullRefreshIndicatorVisible,
+            onRefresh = { uiState.listener.onPullToRefresh() },
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize(),
+        ) {
             when (val content = uiState.content) {
                 HomeUiState.Content.Loading -> Box(modifier = Modifier.fillMaxSize()) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -111,6 +117,7 @@ internal fun HomeScreen(
                 is HomeUiState.Content.Unrecoverable -> UnrecoverableContent(content)
 
                 is HomeUiState.Content.Locks -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -124,7 +131,6 @@ internal fun HomeScreen(
     }
 
     uiState.deleteConfirmation?.let { DeleteConfirmationDialog(it) }
-    uiState.renameDialog?.let { RenameDialog(it) }
 }
 
 @Composable
@@ -266,8 +272,7 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
                     Text(card.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 LockCardMenu(
-                    onRefreshClick = { card.listener.onRefreshClick() },
-                    onRenameClick = { card.listener.onRenameClick() },
+                    onEditClick = { card.listener.onEditClick() },
                     onDeleteClick = { card.listener.onDeleteClick() },
                 )
             }
@@ -297,7 +302,7 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
                 )
                 HoldToActivateButton(
                     text = "解錠",
-                    icon = painterResource(R.drawable.ic_lock_open),
+                    icon = painterResource(R.drawable.ic_lock_open_right),
                     enabled = card.unlockButtonEnabled,
                     holdMillis = ActionHoldMillis,
                     containerColor = statusColors.unlockedContainer,
@@ -331,10 +336,11 @@ private fun StatusBadge(icon: HomeUiState.StatusIcon, tone: HomeUiState.Tone, pr
                 painter = painterResource(
                     when (icon) {
                         HomeUiState.StatusIcon.LOCKED -> R.drawable.ic_lock
-                        HomeUiState.StatusIcon.UNLOCKED -> R.drawable.ic_lock_open
+                        HomeUiState.StatusIcon.UNLOCKED -> R.drawable.ic_lock_open_right
                         HomeUiState.StatusIcon.MOVING -> R.drawable.ic_sync
                         HomeUiState.StatusIcon.UNKNOWN -> R.drawable.ic_question_mark
-                        HomeUiState.StatusIcon.DISCONNECTED -> R.drawable.ic_bluetooth_disabled
+                        HomeUiState.StatusIcon.BLUETOOTH_DISCONNECTED -> R.drawable.ic_bluetooth_disabled
+                        HomeUiState.StatusIcon.CLOUD_DISCONNECTED -> R.drawable.ic_cloud_off
                     },
                 ),
                 contentDescription = null,
@@ -349,7 +355,7 @@ private fun StatusBadge(icon: HomeUiState.StatusIcon, tone: HomeUiState.Tone, pr
 }
 
 @Composable
-private fun LockCardMenu(onRefreshClick: () -> Unit, onRenameClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun LockCardMenu(onEditClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         IconButton(onClick = { expanded = true }) {
@@ -357,22 +363,14 @@ private fun LockCardMenu(onRefreshClick: () -> Unit, onRenameClick: () -> Unit, 
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text("状態を更新") },
-                leadingIcon = { Icon(painter = painterResource(R.drawable.ic_refresh), contentDescription = null) },
+                text = { Text("編集") },
                 onClick = {
                     expanded = false
-                    onRefreshClick()
+                    onEditClick()
                 },
             )
             DropdownMenuItem(
-                text = { Text("名前を変更") },
-                onClick = {
-                    expanded = false
-                    onRenameClick()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("この鍵を削除") },
+                text = { Text("削除") },
                 onClick = {
                     expanded = false
                     onDeleteClick()
@@ -380,29 +378,6 @@ private fun LockCardMenu(onRefreshClick: () -> Unit, onRenameClick: () -> Unit, 
             )
         }
     }
-}
-
-@Composable
-private fun RenameDialog(dialog: HomeUiState.RenameDialog) {
-    AlertDialog(
-        onDismissRequest = { dialog.listener.onCancel() },
-        title = { Text("名前を変更") },
-        text = {
-            OutlinedTextField(
-                value = dialog.name,
-                onValueChange = { dialog.listener.onNameChange(it) },
-                label = { Text("表示名") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { dialog.listener.onConfirmClick() }, enabled = dialog.confirmButtonEnabled) { Text("変更") }
-        },
-        dismissButton = {
-            TextButton(onClick = { dialog.listener.onCancel() }) { Text("キャンセル") }
-        },
-    )
 }
 
 @Composable

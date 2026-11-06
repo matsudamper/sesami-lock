@@ -28,6 +28,13 @@ public enum class AddLockResult {
     NOT_READY,
 }
 
+public enum class UpdateLockResult {
+    UPDATED,
+    ALREADY_REGISTERED,
+    NOT_FOUND,
+    NOT_READY,
+}
+
 public class EncryptedLockRepository(context: Context) {
     private val file = AtomicFile(File(context.noBackupFilesDir, FILE_NAME))
     private val cipher = KeystoreCipher(KEY_ALIAS)
@@ -59,15 +66,17 @@ public class EncryptedLockRepository(context: Context) {
         }
     }
 
-    public suspend fun rename(lockId: LockId, displayName: String) {
-        mutex.withLock {
-            val current = (mutableState.value as? LockRepositoryState.Loaded)?.locks ?: return@withLock
-            val updated = current.map { lock ->
-                if (lock.id == lockId) RegisteredLock(id = lock.id, displayName = displayName, credential = lock.credential) else lock
-            }
-            withContext(Dispatchers.IO) { write(updated) }
-            mutableState.value = LockRepositoryState.Loaded(updated)
-        }
+    /**
+     * [originalId] の鍵を [lock] に置き換える。UUID を変えると ID も変わるため、変更後の ID がほかの鍵と重なる場合は保存しない。
+     */
+    public suspend fun update(originalId: LockId, lock: RegisteredLock): UpdateLockResult = mutex.withLock {
+        val current = (mutableState.value as? LockRepositoryState.Loaded)?.locks ?: return@withLock UpdateLockResult.NOT_READY
+        if (current.none { it.id == originalId }) return@withLock UpdateLockResult.NOT_FOUND
+        if (lock.id != originalId && current.any { it.id == lock.id }) return@withLock UpdateLockResult.ALREADY_REGISTERED
+        val updated = current.map { if (it.id == originalId) lock else it }
+        withContext(Dispatchers.IO) { write(updated) }
+        mutableState.value = LockRepositoryState.Loaded(updated)
+        UpdateLockResult.UPDATED
     }
 
     public suspend fun deleteAll() {

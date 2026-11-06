@@ -25,7 +25,7 @@ import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LockCommandCoordinatorTest {
-    private val lockId = requireNotNull(LockId.fromDeviceUuid("8c9a7bb0-1b3c-4f43-9a6e-6c3c2f2b5e01"))
+    private val lockId = requireNotNull(LockId.of("8c9a7bb0-1b3c-4f43-9a6e-6c3c2f2b5e01", LockRoute.BLE))
     private val bleTarget = LockTarget(lockId, LockRoute.BLE)
 
     private class Fixture(
@@ -146,6 +146,20 @@ class LockCommandCoordinatorTest {
         advanceTimeBy(30.seconds)
 
         assertEquals(listOf(), fixture.ble.dispatched)
+    }
+
+    @Test
+    fun sameDeviceOnOtherRouteIsRejectedWhileUnlockIsPending() = runTest {
+        val fixture = fixture()
+        fixture.ble.connectionGate = CompletableDeferred()
+        fixture.startedUnlock()
+        runCurrent()
+        val sameDeviceCloudTarget = LockTarget(requireNotNull(LockId.of(lockId.deviceUuid, LockRoute.CLOUD)), LockRoute.CLOUD)
+
+        assertEquals(StartResult.Rejected(RejectReason.OPERATION_IN_PROGRESS), fixture.coordinator.requestLock(sameDeviceCloudTarget))
+        advanceTimeBy(30.seconds)
+
+        assertEquals(listOf(), fixture.cloud.dispatched)
     }
 
     @Test

@@ -154,7 +154,7 @@ internal class AddLockViewModel(
         viewModelScope.launch {
             when (repository.add(lock)) {
                 AddLockResult.ADDED -> form.update { it.clearedSecrets().copy(saving = false, closeRequested = true) }
-                AddLockResult.ALREADY_REGISTERED -> form.update { it.copy(saving = false, error = FormError(FormField.GENERAL, "この SESAME は登録済みです。既存の鍵は変更していません")) }
+                AddLockResult.ALREADY_REGISTERED -> form.update { it.copy(saving = false, error = FormError(FormField.GENERAL, "この SESAME は同じ経路で登録済みです。既存の鍵は変更していません")) }
                 AddLockResult.NOT_READY -> form.update { it.copy(saving = false, error = FormError(FormField.GENERAL, "保存領域を読み込めていません")) }
             }
         }
@@ -176,12 +176,12 @@ internal class AddLockViewModel(
     }
 
     private fun parseBle(form: Form): Parsed = when (val result = SesameKeyImporter.import(form.keyText)) {
-        is KeyImportResult.Failure -> Parsed.Error(FormError(FormField.KEY, importErrorMessage(result.error)))
+        is KeyImportResult.Failure -> Parsed.Error(FormError(FormField.KEY, result.error.message()))
 
         is KeyImportResult.Success -> {
-            val id = LockId.fromDeviceUuid(result.credential.deviceUuid)
+            val id = LockId.of(result.credential.deviceUuid, LockRoute.BLE)
             if (id == null) {
-                Parsed.Error(FormError(FormField.KEY, importErrorMessage(KeyImportError.INVALID_UUID)))
+                Parsed.Error(FormError(FormField.KEY, KeyImportError.INVALID_UUID.message()))
             } else {
                 val name = form.name.trim().ifEmpty { result.suggestedName ?: result.credential.model.displayName }
                 Parsed.Lock(RegisteredLock(id, name, result.credential))
@@ -190,31 +190,20 @@ internal class AddLockViewModel(
     }
 
     private fun parseCloud(form: Form): Parsed {
-        val id = LockId.fromDeviceUuid(form.deviceUuid.trim())
+        val id = LockId.of(form.deviceUuid.trim(), LockRoute.CLOUD)
             ?: return Parsed.Error(FormError(FormField.DEVICE_UUID, "UUID の形式が正しくありません"))
         val apiKey = form.apiKey.trim()
         if (apiKey.isEmpty()) return Parsed.Error(FormError(FormField.API_KEY, "API キーを入力してください"))
         val secret = form.secretKey.trim().lowercase(Locale.ROOT)
         if (!secretKeyPattern.matches(secret)) return Parsed.Error(FormError(FormField.SECRET_KEY, "32 桁の 16 進数で入力してください"))
         val credential = LockCredential.Cloud(
-            deviceUuid = id.value,
+            deviceUuid = id.deviceUuid,
             model = form.cloudModel,
             apiKey = apiKey,
             secretKeyHex = secret,
         )
         val name = form.name.trim().ifEmpty { form.cloudModel.displayName }
         return Parsed.Lock(RegisteredLock(id, name, credential))
-    }
-
-    private fun importErrorMessage(error: KeyImportError): String = when (error) {
-        KeyImportError.EMPTY -> "鍵データを入力してください"
-        KeyImportError.UNRECOGNIZED_FORMAT -> "対応していない形式です。従来形式の共有 QR の URL（ssm://...）か、鍵の JSON を入力してください"
-        KeyImportError.ENCRYPTED_TOKEN_QR -> "暗号化された共有 QR（10 分間有効の形式）は読み込めません。公式アプリで従来形式の QR を発行してください"
-        KeyImportError.INVALID_ENCODING -> "鍵データを読み取れませんでした"
-        KeyImportError.UNSUPPORTED_MODEL -> "この機種には対応していません（対応: SESAME 3 / 4 / 5 / 6 / miwa 系のドア錠）"
-        KeyImportError.INVALID_UUID -> "UUID の形式が正しくありません"
-        KeyImportError.INVALID_KEY_FORMAT -> "鍵の形式が正しくありません"
-        KeyImportError.SERVER_SIGNED_GUEST_KEY -> "サーバー署名が必要なゲスト鍵です。オーナーまたはマネージャーの鍵を使ってください"
     }
 
     private sealed interface Parsed {
