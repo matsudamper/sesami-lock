@@ -34,6 +34,7 @@ import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.DispatchResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockSnapshotStore
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
+import net.matsudamper.sesamilock.sesame.core.transport.RefreshResult
 import net.matsudamper.sesamilock.sesame.core.transport.SendGate
 import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 
@@ -125,7 +126,7 @@ public class SesameBleTransport(
         return acknowledged ?: DispatchResult.OutcomeUnknown(TransportError.TIMEOUT)
     }
 
-    override suspend fun refreshState(lockId: LockId): Unit = Unit
+    override suspend fun refreshState(lockId: LockId): RefreshResult = RefreshResult.Refreshed
 
     /**
      * SDK は先行コマンドの送信や応答を待つ間、後続のコマンドを内部キューに保持する。

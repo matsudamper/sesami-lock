@@ -36,6 +36,8 @@ import net.matsudamper.sesamilock.sesame.core.model.RegisteredLock
 import net.matsudamper.sesamilock.sesame.core.model.toDisplayState
 import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
+import net.matsudamper.sesamilock.sesame.core.transport.RefreshResult
+import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.sesame.credential.LockRepositoryState
 import net.matsudamper.sesamilock.ui.edit.EditLockSelection
@@ -54,6 +56,7 @@ internal class HomeViewModel(
             pendingDeleteLockId = null,
             blePermissionsGranted = blePermissions.isGranted(),
             messages = mapOf(),
+            invalidCredentialLockIds = setOf(),
             pullRefreshing = false,
             editScreenRequested = false,
         ),
@@ -165,6 +168,7 @@ internal class HomeViewModel(
                                 now = now,
                                 registrationRejected = it.lock.id in rejectedLockIds,
                                 deviceBusy = it.lock.id.deviceUuid in busyDeviceUuids,
+                                credentialInvalid = it.lock.id in view.invalidCredentialLockIds,
                             )
                         },
                     )
@@ -188,6 +192,7 @@ internal class HomeViewModel(
         now: Long,
         registrationRejected: Boolean,
         deviceBusy: Boolean,
+        credentialInvalid: Boolean,
     ): HomeUiState.LockCard {
         val lock = model.lock
         val freshness = when (lock.route) {
@@ -209,8 +214,16 @@ internal class HomeViewModel(
         }
         val inProgress = phase as? CommandPhase.InProgress
         val operable = !deviceBusy && !registrationRejected
-        val statusIcon = LockTexts.statusIcon(displayState, lock.route)
-        val statusLabel = inProgress?.let(LockTexts::inProgress) ?: LockTexts.status(displayState, lock.route)
+        val statusIcon = if (credentialInvalid) {
+            LockTexts.disconnectedIcon(lock.route)
+        } else {
+            LockTexts.statusIcon(displayState, lock.route)
+        }
+        val statusLabel = when {
+            inProgress != null -> LockTexts.inProgress(inProgress)
+            credentialInvalid -> "接続情報が間違っています"
+            else -> LockTexts.status(displayState, lock.route)
+        }
         return HomeUiState.LockCard(
             name = lock.displayName,
             detail = detail,
@@ -335,15 +348,47 @@ internal class HomeViewModel(
                 LockRoute.BLE -> {
                     val result = withTimeoutOrNull(OBSERVATION_CONNECT_TIMEOUT) { transport.ensureConnected(lock.id) }
                     when (result) {
-                        null -> showMessage(lock.id, "SESAME が見つかりませんでした。近くで操作してください")
-                        is ConnectionResult.Failed -> showMessage(lock.id, LockTexts.error(result.error))
-                        is ConnectionResult.Ready -> clearMessage(lock.id)
+                        null -> Unit
+                        is ConnectionResult.Failed -> onRefreshFailed(lock.id, result.error)
+                        is ConnectionResult.Ready -> onRefreshed(lock.id)
                     }
                 }
 
-                LockRoute.CLOUD -> transport.refreshState(lock.id)
+                LockRoute.CLOUD -> when (val result = transport.refreshState(lock.id)) {
+                    RefreshResult.Refreshed -> onRefreshed(lock.id)
+                    is RefreshResult.Failed -> onRefreshFailed(lock.id, result.error)
+                }
             }
         }.also { refreshJobs[lock.id] = it }
+    }
+
+    private fun onRefreshed(lockId: LockId) {
+        clearMessage(lockId)
+        viewState.update { it.copy(invalidCredentialLockIds = it.invalidCredentialLockIds - lockId) }
+    }
+
+    private fun onRefreshFailed(lockId: LockId, error: TransportError) {
+        when (error) {
+            TransportError.AUTHENTICATION_FAILED,
+            TransportError.SERVER_AUTHORIZATION_REQUIRED,
+            TransportError.HTTP_CLIENT_ERROR,
+            -> viewState.update { it.copy(invalidCredentialLockIds = it.invalidCredentialLockIds + lockId) }
+
+            TransportError.NETWORK,
+            TransportError.TIMEOUT,
+            -> showMessage(lockId, LockTexts.error(error))
+
+            TransportError.PERMISSION_DENIED,
+            TransportError.BLUETOOTH_OFF,
+            TransportError.DEVICE_NOT_REGISTERED,
+            TransportError.UNSUPPORTED_DEVICE,
+            TransportError.NOT_CONNECTED,
+            TransportError.HTTP_SERVER_ERROR,
+            TransportError.INVALID_RESPONSE,
+            TransportError.DEVICE_ERROR,
+            TransportError.UNKNOWN,
+            -> Unit
+        }
     }
 
     private fun showMessage(lockId: LockId, message: String) {
@@ -360,6 +405,7 @@ internal class HomeViewModel(
         val pendingDeleteLockId: LockId?,
         val blePermissionsGranted: Boolean,
         val messages: Map<LockId, String>,
+        val invalidCredentialLockIds: Set<LockId>,
         val pullRefreshing: Boolean,
         val editScreenRequested: Boolean,
     )
