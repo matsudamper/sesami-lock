@@ -35,7 +35,9 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 internal fun HoldToActivateButton(
@@ -86,27 +88,37 @@ internal fun HoldToActivateButton(
             }
             .pointerInput(enabled, holdMillis, onActivate, onTapWithoutHold) {
                 if (!enabled) return@pointerInput
-                awaitEachGesture {
-                    awaitFirstDown()
-                    val animation = scope.launch {
-                        progress.snapTo(0f)
-                        progress.animateTo(1f, tween(durationMillis = holdMillis, easing = LinearEasing))
-                    }
-                    val releasedBeforeHold = withTimeoutOrNull(holdMillis.toLong()) {
-                        waitForUpOrCancellation() != null
-                    }
-                    animation.cancel()
-                    when (releasedBeforeHold) {
-                        null -> {
-                            activate()
-                            waitForUpOrCancellation()
+                try {
+                    awaitEachGesture {
+                        awaitFirstDown()
+                        val animation = scope.launch {
+                            progress.snapTo(0f)
+                            progress.animateTo(1f, tween(durationMillis = holdMillis, easing = LinearEasing))
                         }
+                        try {
+                            val releasedBeforeHold = withTimeoutOrNull(holdMillis.toLong()) {
+                                waitForUpOrCancellation() != null
+                            }
+                            animation.cancel()
+                            when (releasedBeforeHold) {
+                                null -> {
+                                    activate()
+                                    waitForUpOrCancellation()
+                                }
 
-                        true -> onTapWithoutHold()
+                                true -> onTapWithoutHold()
 
-                        false -> Unit
+                                false -> Unit
+                            }
+                        } finally {
+                            animation.cancel()
+                        }
+                        scope.launch { progress.animateTo(0f, tween(durationMillis = 150)) }
                     }
-                    scope.launch { progress.animateTo(0f, tween(durationMillis = 150)) }
+                } finally {
+                    withContext(NonCancellable) {
+                        progress.snapTo(0f)
+                    }
                 }
             },
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
