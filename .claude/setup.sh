@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CMDLINE_TOOLS_REVISION="13114758"
+CMDLINE_TOOLS_REVISION="16111833"
 BUILD_TOOLS_VERSION="36.0.0"
 COMPILE_SDK_FILE="app/build.gradle.kts"
 
@@ -17,6 +17,7 @@ if [ -f local.properties ]; then
 fi
 ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-${sdk_dir_in_local_properties:-${HOME}/android-sdk}}}"
 SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+ANDROID_CLI="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/android"
 
 compile_sdk_major="$(sed -n -E \
   -e 's/^[[:space:]]*(androidCompileSdk|compileSdk)[[:space:]]*=[[:space:]]*"?([0-9]+)"?[[:space:]]*$/\2/p' \
@@ -39,8 +40,9 @@ fi
 
 if [ ! -f "${ANDROID_SDK_ROOT}/platforms/${platform}/android.jar" ] ||
   [ ! -d "${ANDROID_SDK_ROOT}/build-tools/${BUILD_TOOLS_VERSION}" ] ||
-  [ ! -x "${ANDROID_SDK_ROOT}/platform-tools/adb" ]; then
-  if [ ! -x "${SDKMANAGER}" ]; then
+  [ ! -x "${ANDROID_SDK_ROOT}/platform-tools/adb" ] ||
+  [ ! -x "${ANDROID_CLI}" ]; then
+  if [ ! -x "${ANDROID_CLI}" ]; then
     echo "[setup] cmdline-tools を導入する"
     mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
     tmp="$(mktemp -d)"
@@ -74,6 +76,10 @@ if [ -f local.properties ]; then
 fi
 echo "sdk.dir=${ANDROID_SDK_ROOT}" >> "${tmp_local_properties}"
 mv "${tmp_local_properties}" local.properties
+
+if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+  echo "export PATH=\"${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:\$PATH\"" >> "${CLAUDE_ENV_FILE}"
+fi
 
 android_user_home="${ANDROID_USER_HOME:-${HOME}/.android}"
 if [ ! -f "${android_user_home}/debug.keystore" ]; then
