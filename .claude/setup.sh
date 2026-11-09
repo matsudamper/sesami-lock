@@ -11,6 +11,9 @@ fi
 
 cd "${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 
+echo "[setup] サブモジュールを取得する"
+git submodule update --init --recursive
+
 sdk_dir_in_local_properties=""
 if [ -f local.properties ]; then
   sdk_dir_in_local_properties="$(sed -n 's/^[[:space:]]*sdk\.dir[[:space:]]*=[[:space:]]*\(.*\)$/\1/p' local.properties | tail -n 1)"
