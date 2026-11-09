@@ -3,6 +3,7 @@ package net.matsudamper.sesamilock.sesame.core.transfer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import net.matsudamper.sesamilock.sesame.core.model.LockCredential
 import net.matsudamper.sesamilock.sesame.core.model.LockId
 import net.matsudamper.sesamilock.sesame.core.model.LockRoute
@@ -44,6 +45,25 @@ class LockTransferCodecTest {
     }
 
     @Test
+    fun keepsSeparatorsInDisplayNameAndApiKey() {
+        val credential = LockCredential.Cloud(uuid, SesameModel.SESAME_6, "a|b\\c", secret)
+        val lock = RegisteredLock(LockId.of(uuid, LockRoute.CLOUD)!!, "玄関|1階\\", credential)
+
+        val result = assertIs<LockTransferResult.Success>(LockTransferCodec.decode(LockTransferCodec.encode(lock)))
+
+        assertEquals("玄関|1階\\", result.displayName)
+        assertEquals("a|b\\c", assertIs<LockCredential.Cloud>(result.credential).apiKey)
+    }
+
+    @Test
+    fun doesNotInflateJapaneseDisplayName() {
+        val credential = LockCredential.Cloud(uuid, SesameModel.SESAME_6, "k", secret)
+        val lock = RegisteredLock(LockId.of(uuid, LockRoute.CLOUD)!!, "玄関", credential)
+
+        assertTrue(LockTransferCodec.encode(lock).endsWith("|玄関"))
+    }
+
+    @Test
     fun rejectsOfficialKeyJson() {
         val official = """{"deviceUUID":"$uuid","deviceModel":"sesame_5","keyIndex":"0005","secretKey":"$secret","sesame2PublicKey":"11111111"}"""
 
@@ -54,14 +74,14 @@ class LockTransferCodecTest {
 
     @Test
     fun rejectsUnknownVersion() {
-        val data = """{"format":"sesami-lock","version":2}"""
+        val data = "SL2|BLE|$uuid|5|0005|$secret|11111111|a"
 
         assertEquals(LockTransferError.UNSUPPORTED_VERSION, assertIs<LockTransferResult.Failure>(LockTransferCodec.decode(data)).error)
     }
 
     @Test
     fun rejectsBrokenSecretKey() {
-        val data = """{"format":"sesami-lock","version":1,"name":"a","route":"CLOUD","deviceUuid":"$uuid","model":"sesame_5","apiKey":"k","secretKey":"zz"}"""
+        val data = "SL1|CLOUD|$uuid|5|zz|k|a"
 
         assertEquals(LockTransferError.INVALID_CONTENT, assertIs<LockTransferResult.Failure>(LockTransferCodec.decode(data)).error)
     }

@@ -1,9 +1,6 @@
 package net.matsudamper.sesamilock.sesame.core.transfer
 
 import java.util.Locale
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import net.matsudamper.sesamilock.sesame.core.key.KeyImportResult
 import net.matsudamper.sesamilock.sesame.core.key.SesameKeyImporter
 import net.matsudamper.sesamilock.sesame.core.model.LockCredential
@@ -26,62 +23,68 @@ public enum class LockTransferError {
     INVALID_CONTENT,
 }
 
+/**
+ * このアプリ専用の鍵 1 件分の転送形式。`|` 区切りで先頭がバージョン (`SL1`)。
+ * BLE: `SL1|BLE|uuid|productType|keyIndex|secretKey|publicKey|表示名`
+ * クラウド: `SL1|CLOUD|uuid|productType|secretKey|apiKey|表示名`
+ * 表示名は最後のフィールドで区切りを含んでもそのまま続け、容量を増やさないためエスケープしない。
+ * それより前の自由入力（API キー）だけ `\|` と `\\` でエスケープする。
+ */
 public object LockTransferCodec {
-    private const val FORMAT = "sesami-lock"
-    private const val VERSION = 1
+    private const val SEPARATOR = '|'
+    private const val ESCAPE = '\\'
+    private const val VERSION_TAG = "SL1"
+    private val versionTagPattern = Regex("^SL[0-9]+$")
     private val secretKeyPattern = Regex("^[0-9a-fA-F]{32}$")
-    private val json = Json { ignoreUnknownKeys = true }
 
     public fun encode(lock: RegisteredLock): String {
-        val common = mapOf(
-            "format" to JsonPrimitive(FORMAT),
-            "version" to JsonPrimitive(VERSION),
-            "name" to JsonPrimitive(lock.displayName),
-            "route" to JsonPrimitive(lock.route.name),
-        )
         val fields = when (val credential = lock.credential) {
-            is LockCredential.Ble -> mapOf(
-                "deviceUuid" to JsonPrimitive(credential.deviceUuid),
-                "model" to JsonPrimitive(credential.model.deviceModel),
-                "keyIndex" to JsonPrimitive(credential.keyIndexHex),
-                "secretKey" to JsonPrimitive(credential.secretKeyHex),
-                "publicKey" to JsonPrimitive(credential.publicKeyHex),
+            is LockCredential.Ble -> listOf(
+                VERSION_TAG,
+                LockRoute.BLE.name,
+                credential.deviceUuid,
+                credential.model.productType.toString(),
+                credential.keyIndexHex,
+                credential.secretKeyHex,
+                credential.publicKeyHex,
             )
 
-            is LockCredential.Cloud -> mapOf(
-                "deviceUuid" to JsonPrimitive(credential.deviceUuid),
-                "model" to JsonPrimitive(credential.model.deviceModel),
-                "apiKey" to JsonPrimitive(credential.apiKey),
-                "secretKey" to JsonPrimitive(credential.secretKeyHex),
+            is LockCredential.Cloud -> listOf(
+                VERSION_TAG,
+                LockRoute.CLOUD.name,
+                credential.deviceUuid,
+                credential.model.productType.toString(),
+                credential.secretKeyHex,
+                escape(credential.apiKey),
             )
         }
-        return JsonObject(common + fields).toString()
+        return (fields + lock.displayName).joinToString(SEPARATOR.toString())
     }
 
     public fun decode(input: String): LockTransferResult {
-        val obj = runCatching { json.parseToJsonElement(input.trim()) as? JsonObject }.getOrNull()
-        if (obj == null || obj.string("format") != FORMAT) {
+        val reader = FieldReader(input.trim())
+        val versionTag = reader.next()
+        if (versionTag == null || !versionTagPattern.matches(versionTag)) {
             return LockTransferResult.Failure(LockTransferError.NOT_TRANSFER_DATA)
         }
-        if ((obj["version"] as? JsonPrimitive)?.content?.toIntOrNull() != VERSION) {
-            return LockTransferResult.Failure(LockTransferError.UNSUPPORTED_VERSION)
-        }
-        val name = obj.string("name") ?: return invalid()
-        val route = LockRoute.entries.firstOrNull { it.name == obj.string("route") } ?: return invalid()
-        val deviceUuid = obj.string("deviceUuid") ?: return invalid()
-        val model = obj.string("model")?.let(SesameModel::fromDeviceModel) ?: return invalid()
-        val secretKey = obj.string("secretKey") ?: return invalid()
+        if (versionTag != VERSION_TAG) return LockTransferResult.Failure(LockTransferError.UNSUPPORTED_VERSION)
+        val routeName = reader.next()
+        val route = LockRoute.entries.firstOrNull { it.name == routeName } ?: return invalid()
+        val deviceUuid = reader.next() ?: return invalid()
+        val model = reader.next()?.toIntOrNull()?.let(SesameModel::fromProductType) ?: return invalid()
         val credential = when (route) {
             LockRoute.BLE -> {
-                val keyIndex = obj.string("keyIndex") ?: return invalid()
-                val publicKey = obj.string("publicKey") ?: return invalid()
+                val keyIndex = reader.next() ?: return invalid()
+                val secretKey = reader.next() ?: return invalid()
+                val publicKey = reader.next() ?: return invalid()
                 val result = SesameKeyImporter.validate(deviceUuid, model.deviceModel, keyIndex, secretKey, publicKey)
                 (result as? KeyImportResult.Success)?.credential ?: return invalid()
             }
 
             LockRoute.CLOUD -> {
+                val secretKey = reader.next() ?: return invalid()
+                val apiKey = reader.next()?.takeIf { it.isNotBlank() } ?: return invalid()
                 val id = LockId.of(deviceUuid, LockRoute.CLOUD) ?: return invalid()
-                val apiKey = obj.string("apiKey")?.takeIf { it.isNotBlank() } ?: return invalid()
                 if (!secretKeyPattern.matches(secretKey)) return invalid()
                 LockCredential.Cloud(
                     deviceUuid = id.deviceUuid,
@@ -91,10 +94,34 @@ public object LockTransferCodec {
                 )
             }
         }
-        return LockTransferResult.Success(displayName = name, credential = credential)
+        return LockTransferResult.Success(displayName = reader.rest(), credential = credential)
     }
 
     private fun invalid(): LockTransferResult = LockTransferResult.Failure(LockTransferError.INVALID_CONTENT)
 
-    private fun JsonObject.string(name: String): String? = (this[name] as? JsonPrimitive)?.takeIf { it.isString }?.content
+    private fun escape(value: String): String = buildString {
+        value.forEach { char ->
+            if (char == SEPARATOR || char == ESCAPE) append(ESCAPE)
+            append(char)
+        }
+    }
+
+    private class FieldReader(private val text: String) {
+        private var position = 0
+
+        fun next(): String? {
+            val field = StringBuilder()
+            while (position < text.length) {
+                val char = text[position++]
+                when {
+                    char == ESCAPE && position < text.length -> field.append(text[position++])
+                    char == SEPARATOR -> return field.toString()
+                    else -> field.append(char)
+                }
+            }
+            return null
+        }
+
+        fun rest(): String = text.substring(position).also { position = text.length }
+    }
 }
