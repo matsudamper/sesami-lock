@@ -1,9 +1,6 @@
 package net.matsudamper.sesamilock.ui.add
 
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import net.matsudamper.sesamilock.R
+import net.matsudamper.sesamilock.ui.component.QrImageSourceButtons
 import net.matsudamper.sesamilock.ui.component.SecretTextField
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -116,28 +114,17 @@ internal fun AddLockScreen(
 
 @Composable
 private fun BleInputContent(input: AddLockUiState.BleInput, listener: AddLockUiState.Listener, modifier: Modifier = Modifier) {
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) listener.onQrImagePicked(uri)
-    }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            "公式アプリの「鍵をシェア」で表示した QR コードのスクリーンショットを選ぶか、QR の内容を貼り付けてください。",
+            "公式アプリの「鍵をシェア」で表示した QR コードを撮影するかスクリーンショットを選ぶか、QR の内容を貼り付けてください。",
             style = MaterialTheme.typography.bodyMedium,
         )
-        OutlinedButton(
-            onClick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+        QrImageSourceButtons(
             enabled = input.qrPickButtonEnabled,
+            progressVisible = input.qrReadingProgressVisible,
+            onImageReady = { listener.onQrImagePicked(it) },
             modifier = Modifier.fillMaxWidth(),
-        ) {
-            Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                if (input.qrReadingProgressVisible) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                } else {
-                    Icon(painter = painterResource(R.drawable.ic_qr_code_scanner), contentDescription = null)
-                }
-            }
-            Text("画像から QR コードを読み込む", modifier = Modifier.padding(start = 8.dp))
-        }
+        )
         SecretTextField(
             value = input.keyText,
             onValueChange = { listener.onKeyTextChange(it) },

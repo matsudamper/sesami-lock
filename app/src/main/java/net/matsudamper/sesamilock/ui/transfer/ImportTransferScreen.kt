@@ -1,9 +1,6 @@
 package net.matsudamper.sesamilock.ui.transfer
 
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import net.matsudamper.sesamilock.R
+import net.matsudamper.sesamilock.ui.component.QrImageSourceButtons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,9 +44,6 @@ internal fun ImportTransferScreen(
         if (uiState.closeRequested) currentOnClosed.value()
     }
     BackHandler { uiState.listener.onBackClick() }
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) uiState.listener.onQrImagePicked(uri)
-    }
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -70,23 +65,15 @@ internal fun ImportTransferScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
-                "他の端末のこのアプリで、鍵のメニューの「共有」から表示した QR コードのスクリーンショットを選んでください。",
+                "他の端末のこのアプリで、鍵のメニューの「共有」から表示した QR コードを撮影するか、スクリーンショットを選んでください。",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            OutlinedButton(
-                onClick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            QrImageSourceButtons(
                 enabled = uiState.readButtonEnabled,
+                progressVisible = uiState.readProgressVisible,
+                onImageReady = { uiState.listener.onQrImagePicked(it) },
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                    if (uiState.readProgressVisible) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(painter = painterResource(R.drawable.ic_qr_code_scanner), contentDescription = null)
-                    }
-                }
-                Text("画像から QR コードを読み込む", modifier = Modifier.padding(start = 8.dp))
-            }
+            )
             uiState.preview?.let { preview ->
                 OutlinedTextField(
                     value = preview.name,
