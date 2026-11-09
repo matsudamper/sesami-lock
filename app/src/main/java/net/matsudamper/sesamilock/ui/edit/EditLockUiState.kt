@@ -2,7 +2,6 @@ package net.matsudamper.sesamilock.ui.edit
 
 import android.net.Uri
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.graphics.ImageBitmap
 
 @Immutable
 internal data class EditLockUiState(
@@ -22,7 +21,6 @@ internal data class EditLockUiState(
             val cloudInput: CloudInput?,
             val generalErrorMessage: String?,
             val saveButtonEnabled: Boolean,
-            val exportQrImage: ImageBitmap?,
         ) : Content
     }
 
@@ -58,10 +56,6 @@ internal data class EditLockUiState(
         fun onKeyTextChange(value: String)
 
         fun onQrImagePicked(uri: Uri)
-
-        fun onExportQrClick()
-
-        fun onExportQrDismiss()
 
         fun onDeviceUuidChange(value: String)
 

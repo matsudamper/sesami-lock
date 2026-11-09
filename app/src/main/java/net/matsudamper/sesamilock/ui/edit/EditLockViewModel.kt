@@ -1,8 +1,6 @@
 package net.matsudamper.sesamilock.ui.edit
 
 import android.net.Uri
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.Locale
@@ -15,8 +13,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.google.zxing.WriterException
-import net.matsudamper.sesamilock.QrCodeEncoder
 import net.matsudamper.sesamilock.QrImageDecoder
 import net.matsudamper.sesamilock.sesame.core.coordinator.CommandPhase
 import net.matsudamper.sesamilock.sesame.core.coordinator.LockCommandCoordinator
@@ -28,7 +24,6 @@ import net.matsudamper.sesamilock.sesame.core.model.LockId
 import net.matsudamper.sesamilock.sesame.core.model.LockRoute
 import net.matsudamper.sesamilock.sesame.core.model.RegisteredLock
 import net.matsudamper.sesamilock.sesame.core.model.SesameModel
-import net.matsudamper.sesamilock.sesame.core.transfer.LockTransferCodec
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.sesame.credential.LockRepositoryState
 import net.matsudamper.sesamilock.sesame.credential.UpdateLockResult
@@ -53,14 +48,6 @@ internal class EditLockViewModel(
 
         override fun onQrImagePicked(uri: Uri) {
             readQrImage(uri)
-        }
-
-        override fun onExportQrClick() {
-            exportQr()
-        }
-
-        override fun onExportQrDismiss() {
-            updateForm { it.copy(exportQrImage = null) }
         }
 
         override fun onDeviceUuidChange(value: String) {
@@ -151,7 +138,6 @@ internal class EditLockViewModel(
             },
             generalErrorMessage = form.error?.messageFor(FormField.GENERAL),
             saveButtonEnabled = !form.saving && !form.qrReading,
-            exportQrImage = form.exportQrImage,
         )
     }
 
@@ -186,16 +172,6 @@ internal class EditLockViewModel(
                 UpdateLockResult.NOT_READY -> showSaveFailure(FormError(FormField.GENERAL, "保存領域を読み込めていません"))
             }
         }
-    }
-
-    private fun exportQr() {
-        val form = (state.value as? State.Editing)?.form ?: return
-        val image = try {
-            QrCodeEncoder.encode(LockTransferCodec.encode(form.original)).asImageBitmap()
-        } catch (_: WriterException) {
-            return showError(FormError(FormField.GENERAL, "鍵の情報が大きすぎて QR コードにできません。表示名を短くしてください"))
-        }
-        updateForm { it.copy(exportQrImage = image, error = null) }
     }
 
     private fun readQrImage(uri: Uri) {
@@ -298,7 +274,6 @@ internal class EditLockViewModel(
         val name: String,
         val keyText: String,
         val qrReading: Boolean,
-        val exportQrImage: ImageBitmap?,
         val deviceUuid: String,
         val apiKey: String,
         val secretKey: String,
@@ -317,7 +292,6 @@ internal class EditLockViewModel(
                     name = lock.displayName,
                     keyText = ble?.let(SesameKeyImporter::exportJson).orEmpty(),
                     qrReading = false,
-                    exportQrImage = null,
                     deviceUuid = cloud?.deviceUuid.orEmpty(),
                     apiKey = cloud?.apiKey.orEmpty(),
                     secretKey = cloud?.secretKeyHex.orEmpty(),

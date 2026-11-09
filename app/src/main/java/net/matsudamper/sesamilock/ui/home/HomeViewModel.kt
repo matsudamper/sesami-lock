@@ -1,5 +1,7 @@
 package net.matsudamper.sesamilock.ui.home
 
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.concurrent.ConcurrentHashMap
@@ -21,8 +23,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import com.google.zxing.WriterException
 import net.matsudamper.sesamilock.BlePermissions
 import net.matsudamper.sesamilock.LockRegistrySync
+import net.matsudamper.sesamilock.QrCodeEncoder
 import net.matsudamper.sesamilock.sesame.core.coordinator.CommandPhase
 import net.matsudamper.sesamilock.sesame.core.coordinator.LockCommandCoordinator
 import net.matsudamper.sesamilock.sesame.core.coordinator.LockTarget
@@ -35,6 +39,7 @@ import net.matsudamper.sesamilock.sesame.core.model.LockRoute
 import net.matsudamper.sesamilock.sesame.core.model.LockSnapshot
 import net.matsudamper.sesamilock.sesame.core.model.RegisteredLock
 import net.matsudamper.sesamilock.sesame.core.model.toDisplayState
+import net.matsudamper.sesamilock.sesame.core.transfer.LockTransferCodec
 import net.matsudamper.sesamilock.sesame.core.transport.ConnectionResult
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
 import net.matsudamper.sesamilock.sesame.core.transport.RefreshResult
@@ -55,6 +60,7 @@ internal class HomeViewModel(
     private val viewState = MutableStateFlow(
         ViewState(
             pendingDeleteLockId = null,
+            shareQr = null,
             blePermissionsGranted = blePermissions.isGranted(),
             messages = mapOf(),
             invalidCredentialLockIds = setOf(),
@@ -181,6 +187,7 @@ internal class HomeViewModel(
                 null
             },
             deleteConfirmation = view.pendingDeleteLockId?.let { id -> models.firstOrNull { it.lock.id == id } }?.let(::createDeleteConfirmation),
+            shareQr = view.shareQr?.let(::createShareQr),
             snackbar = models.firstNotNullOfOrNull { createSnackbar(it, view) },
             pullRefreshIndicatorVisible = view.pullRefreshing,
             editScreenRequested = view.editScreenRequested,
@@ -305,6 +312,16 @@ internal class HomeViewModel(
             }
         }
 
+        override fun onShareClick() {
+            val image = try {
+                QrCodeEncoder.encode(LockTransferCodec.encode(lock)).asImageBitmap()
+            } catch (_: WriterException) {
+                showMessage(lock.id, "鍵の情報が大きすぎて QR コードにできません。表示名を短くしてください")
+                return
+            }
+            viewState.update { it.copy(shareQr = ShareQrSource(lock.displayName, image)) }
+        }
+
         override fun onEditClick() {
             editLockSelection.lockId = lock.id
             viewState.update { it.copy(editScreenRequested = true) }
@@ -348,6 +365,16 @@ internal class HomeViewModel(
         snackbarCache = key to snackbar
         return snackbar
     }
+
+    private fun createShareQr(source: ShareQrSource): HomeUiState.ShareQr = HomeUiState.ShareQr(
+        lockName = source.lockName,
+        image = source.image,
+        listener = object : HomeUiState.ShareQrListener {
+            override fun onDismiss() {
+                viewState.update { it.copy(shareQr = null) }
+            }
+        },
+    )
 
     private fun createDeleteConfirmation(model: LockModel): HomeUiState.DeleteConfirmation = HomeUiState.DeleteConfirmation(
         lockName = model.lock.displayName,
@@ -427,8 +454,11 @@ internal class HomeViewModel(
 
     private fun transport(lock: RegisteredLock): LockTransport = transports.getValue(lock.route)
 
+    private data class ShareQrSource(val lockName: String, val image: ImageBitmap)
+
     private data class ViewState(
         val pendingDeleteLockId: LockId?,
+        val shareQr: ShareQrSource?,
         val blePermissionsGranted: Boolean,
         val messages: Map<LockId, String>,
         val invalidCredentialLockIds: Set<LockId>,

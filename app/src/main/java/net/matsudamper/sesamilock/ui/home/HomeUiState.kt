@@ -1,12 +1,14 @@
 package net.matsudamper.sesamilock.ui.home
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.graphics.ImageBitmap
 
 @Immutable
 internal data class HomeUiState(
     val content: Content,
     val permissionBanner: PermissionBanner?,
     val deleteConfirmation: DeleteConfirmation?,
+    val shareQr: ShareQr?,
     val snackbar: Snackbar?,
     val pullRefreshIndicatorVisible: Boolean,
     val editScreenRequested: Boolean,
@@ -78,6 +80,13 @@ internal data class HomeUiState(
         val listener: DeleteConfirmationListener,
     )
 
+    @Immutable
+    data class ShareQr(
+        val lockName: String,
+        val image: ImageBitmap,
+        val listener: ShareQrListener,
+    )
+
     interface Listener {
         fun onResume()
 
@@ -101,6 +110,8 @@ internal data class HomeUiState(
 
         fun onCancelClick()
 
+        fun onShareClick()
+
         fun onEditClick()
 
         fun onDeleteClick()
@@ -112,6 +123,10 @@ internal data class HomeUiState(
 
     interface PermissionListener {
         fun onPermissionResult()
+    }
+
+    interface ShareQrListener {
+        fun onDismiss()
     }
 
     interface DeleteConfirmationListener {
