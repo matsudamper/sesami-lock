@@ -1,9 +1,12 @@
 package net.matsudamper.sesamilock.ui.component
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import androidx.lifecycle.Lifecycle
 import java.io.File
 import net.matsudamper.sesamilock.R
 
@@ -42,6 +46,7 @@ private enum class QrImageSource {
 /**
  * QR コードの画像をカメラで撮影するか、端末の画像から選ぶボタン。
  * 撮影画像には鍵の秘密情報が写るため、アプリ専用キャッシュの 1 ファイルに上書きし、画面を離れたら消す。
+ * 撮影中に回転などで Activity が作り直されるときは、戻ってきた撮影結果を読めるよう残す。
  */
 @Composable
 internal fun QrImageSourceButtons(
@@ -59,8 +64,11 @@ internal fun QrImageSourceButtons(
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) onImageReady(uri)
     }
-    DisposableEffect(context) {
-        onDispose { qrCaptureFile(context).delete() }
+    val activity = LocalActivity.current
+    DisposableEffect(context, activity) {
+        onDispose {
+            if (!activity.willBeRecreated()) qrCaptureFile(context).delete()
+        }
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SourceButton(
@@ -109,6 +117,11 @@ private fun SourceButton(
         }
         Text(label, modifier = Modifier.padding(start = 8.dp))
     }
+}
+
+private fun Activity?.willBeRecreated(): Boolean {
+    val lifecycle = (this as? ComponentActivity)?.lifecycle ?: return false
+    return lifecycle.currentState == Lifecycle.State.DESTROYED && !isFinishing
 }
 
 private fun qrCaptureFile(context: Context): File = File(File(context.cacheDir, "qr_capture"), "capture.jpg")
