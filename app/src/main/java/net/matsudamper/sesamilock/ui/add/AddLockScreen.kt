@@ -69,6 +69,9 @@ internal fun AddLockScreen(
             )
         },
     ) { innerPadding ->
+        val transferImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            if (uri != null) uiState.listener.onTransferQrImagePicked(uri)
+        }
         Column(
             modifier = Modifier
                 .padding(innerPadding)
@@ -76,6 +79,20 @@ internal fun AddLockScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            OutlinedButton(
+                onClick = { transferImagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                enabled = uiState.transferImportButtonEnabled,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                    if (uiState.transferImportProgressVisible) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(painter = painterResource(R.drawable.ic_qr_code_scanner), contentDescription = null)
+                    }
+                }
+                Text("このアプリの QR コードから取り込む", modifier = Modifier.padding(start = 8.dp))
+            }
             OutlinedTextField(
                 value = uiState.name,
                 onValueChange = { uiState.listener.onNameChange(it) },

@@ -12,6 +12,8 @@ internal data class AddLockUiState(
     val cloudInput: CloudInput?,
     val generalErrorMessage: String?,
     val saveButtonEnabled: Boolean,
+    val transferImportProgressVisible: Boolean,
+    val transferImportButtonEnabled: Boolean,
     val closeRequested: Boolean,
     val listener: Listener,
 ) {
@@ -52,6 +54,8 @@ internal data class AddLockUiState(
         fun onKeyTextChange(value: String)
 
         fun onQrImagePicked(uri: Uri)
+
+        fun onTransferQrImagePicked(uri: Uri)
 
         fun onDeviceUuidChange(value: String)
 

@@ -1,6 +1,7 @@
 package net.matsudamper.sesamilock.ui.edit
 
 import android.net.Uri
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.Locale
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.matsudamper.sesamilock.QrCodeEncoder
 import net.matsudamper.sesamilock.QrImageDecoder
 import net.matsudamper.sesamilock.sesame.core.coordinator.CommandPhase
 import net.matsudamper.sesamilock.sesame.core.coordinator.LockCommandCoordinator
@@ -24,6 +26,7 @@ import net.matsudamper.sesamilock.sesame.core.model.LockId
 import net.matsudamper.sesamilock.sesame.core.model.LockRoute
 import net.matsudamper.sesamilock.sesame.core.model.RegisteredLock
 import net.matsudamper.sesamilock.sesame.core.model.SesameModel
+import net.matsudamper.sesamilock.sesame.core.transfer.LockTransferCodec
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.sesame.credential.LockRepositoryState
 import net.matsudamper.sesamilock.sesame.credential.UpdateLockResult
@@ -48,6 +51,14 @@ internal class EditLockViewModel(
 
         override fun onQrImagePicked(uri: Uri) {
             readQrImage(uri)
+        }
+
+        override fun onExportQrClick() {
+            updateForm { it.copy(exportQrVisible = true) }
+        }
+
+        override fun onExportQrDismiss() {
+            updateForm { it.copy(exportQrVisible = false) }
         }
 
         override fun onDeviceUuidChange(value: String) {
@@ -138,6 +149,11 @@ internal class EditLockViewModel(
             },
             generalErrorMessage = form.error?.messageFor(FormField.GENERAL),
             saveButtonEnabled = !form.saving && !form.qrReading,
+            exportQrImage = if (form.exportQrVisible) {
+                QrCodeEncoder.encode(LockTransferCodec.encode(form.original)).asImageBitmap()
+            } else {
+                null
+            },
         )
     }
 
@@ -274,6 +290,7 @@ internal class EditLockViewModel(
         val name: String,
         val keyText: String,
         val qrReading: Boolean,
+        val exportQrVisible: Boolean,
         val deviceUuid: String,
         val apiKey: String,
         val secretKey: String,
@@ -292,6 +309,7 @@ internal class EditLockViewModel(
                     name = lock.displayName,
                     keyText = ble?.let(SesameKeyImporter::exportJson).orEmpty(),
                     qrReading = false,
+                    exportQrVisible = false,
                     deviceUuid = cloud?.deviceUuid.orEmpty(),
                     apiKey = cloud?.apiKey.orEmpty(),
                     secretKey = cloud?.secretKeyHex.orEmpty(),
