@@ -22,10 +22,13 @@ import net.matsudamper.sesamilock.ui.edit.EditLockViewModel
 import net.matsudamper.sesamilock.ui.home.HomeScreen
 import net.matsudamper.sesamilock.ui.home.HomeViewModel
 import net.matsudamper.sesamilock.ui.settings.SettingsScreen
+import net.matsudamper.sesamilock.ui.transfer.ImportTransferScreen
+import net.matsudamper.sesamilock.ui.transfer.ImportTransferViewModel
 
 private enum class Destination {
     HOME,
     ADD_LOCK,
+    IMPORT_TRANSFER,
     DIAGNOSTICS,
     SETTINGS,
     EDIT_LOCK,
@@ -39,6 +42,7 @@ internal fun AppRoot(
 ) {
     var destination by rememberSaveable { mutableStateOf(Destination.HOME) }
     var addLockVisit by rememberSaveable { mutableIntStateOf(0) }
+    var importTransferVisit by rememberSaveable { mutableIntStateOf(0) }
     var editLockVisit by rememberSaveable { mutableIntStateOf(0) }
     BackHandler(enabled = destination == Destination.DIAGNOSTICS || destination == Destination.SETTINGS) {
         destination = Destination.HOME
@@ -66,9 +70,13 @@ internal fun AppRoot(
             }
             HomeScreen(
                 uiState = uiState,
-                onAddLockClick = {
+                onAddFromSesameAppClick = {
                     addLockVisit += 1
                     destination = Destination.ADD_LOCK
+                },
+                onAddFromThisAppClick = {
+                    importTransferVisit += 1
+                    destination = Destination.IMPORT_TRANSFER
                 },
                 onDiagnosticsClick = { destination = Destination.DIAGNOSTICS },
                 onSettingsClick = { destination = Destination.SETTINGS },
@@ -80,6 +88,16 @@ internal fun AppRoot(
             val viewModel = viewModel(key = "add-lock-$addLockVisit") { AddLockViewModel(graph.repository, graph.qrImageDecoder) }
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             AddLockScreen(
+                uiState = uiState,
+                onClosed = { destination = Destination.HOME },
+                modifier = modifier,
+            )
+        }
+
+        Destination.IMPORT_TRANSFER -> {
+            val viewModel = viewModel(key = "import-transfer-$importTransferVisit") { ImportTransferViewModel(graph.repository, graph.qrImageDecoder) }
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            ImportTransferScreen(
                 uiState = uiState,
                 onClosed = { destination = Destination.HOME },
                 modifier = modifier,

@@ -72,7 +72,8 @@ private val actionButtonHeight = 56.dp
 @Composable
 internal fun HomeScreen(
     uiState: HomeUiState,
-    onAddLockClick: () -> Unit,
+    onAddFromSesameAppClick: () -> Unit,
+    onAddFromThisAppClick: () -> Unit,
     onDiagnosticsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -98,8 +99,13 @@ internal fun HomeScreen(
             TopAppBar(
                 title = { Text("SESAME") },
                 actions = {
-                    IconButton(onClick = onAddLockClick) {
-                        Icon(painter = painterResource(R.drawable.ic_add), contentDescription = "鍵を追加")
+                    AddLockMenu(
+                        onAddFromSesameAppClick = onAddFromSesameAppClick,
+                        onAddFromThisAppClick = onAddFromThisAppClick,
+                    ) { onClick ->
+                        IconButton(onClick = onClick) {
+                            Icon(painter = painterResource(R.drawable.ic_add), contentDescription = "鍵を追加")
+                        }
                     }
                     OverflowMenu(onDiagnosticsClick = onDiagnosticsClick, onSettingsClick = onSettingsClick)
                 },
@@ -119,7 +125,10 @@ internal fun HomeScreen(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
 
-                HomeUiState.Content.Empty -> EmptyContent(onAddLockClick = onAddLockClick)
+                HomeUiState.Content.Empty -> EmptyContent(
+                    onAddFromSesameAppClick = onAddFromSesameAppClick,
+                    onAddFromThisAppClick = onAddFromThisAppClick,
+                )
 
                 is HomeUiState.Content.Unrecoverable -> UnrecoverableContent(content)
 
@@ -139,6 +148,35 @@ internal fun HomeScreen(
 
     uiState.deleteConfirmation?.let { DeleteConfirmationDialog(it) }
     uiState.shareQr?.let { ShareQrDialog(it) }
+}
+
+@Composable
+private fun AddLockMenu(
+    onAddFromSesameAppClick: () -> Unit,
+    onAddFromThisAppClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    trigger: @Composable (onClick: () -> Unit) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        trigger { expanded = true }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("SESAME アプリから追加") },
+                onClick = {
+                    expanded = false
+                    onAddFromSesameAppClick()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("このアプリから追加") },
+                onClick = {
+                    expanded = false
+                    onAddFromThisAppClick()
+                },
+            )
+        }
+    }
 }
 
 @Composable
@@ -199,7 +237,7 @@ private fun PermissionBanner(banner: HomeUiState.PermissionBanner, modifier: Mod
 }
 
 @Composable
-private fun EmptyContent(onAddLockClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun EmptyContent(onAddFromSesameAppClick: () -> Unit, onAddFromThisAppClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -219,7 +257,12 @@ private fun EmptyContent(onAddLockClick: () -> Unit, modifier: Modifier = Modifi
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )
-        Button(onClick = onAddLockClick) { Text("鍵を追加") }
+        AddLockMenu(
+            onAddFromSesameAppClick = onAddFromSesameAppClick,
+            onAddFromThisAppClick = onAddFromThisAppClick,
+        ) { onClick ->
+            Button(onClick = onClick) { Text("鍵を追加") }
+        }
     }
 }
 

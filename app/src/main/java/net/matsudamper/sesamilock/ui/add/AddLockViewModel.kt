@@ -20,9 +20,6 @@ import net.matsudamper.sesamilock.sesame.core.model.LockId
 import net.matsudamper.sesamilock.sesame.core.model.LockRoute
 import net.matsudamper.sesamilock.sesame.core.model.RegisteredLock
 import net.matsudamper.sesamilock.sesame.core.model.SesameModel
-import net.matsudamper.sesamilock.sesame.core.transfer.LockTransferCodec
-import net.matsudamper.sesamilock.sesame.core.transfer.LockTransferError
-import net.matsudamper.sesamilock.sesame.core.transfer.LockTransferResult
 import net.matsudamper.sesamilock.sesame.credential.AddLockResult
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 
@@ -65,10 +62,6 @@ internal class AddLockViewModel(
 
         override fun onQrImagePicked(uri: Uri) {
             readQrImage(uri)
-        }
-
-        override fun onTransferQrImagePicked(uri: Uri) {
-            readTransferQrImage(uri)
         }
 
         override fun onDeviceUuidChange(value: String) {
@@ -138,8 +131,6 @@ internal class AddLockViewModel(
         },
         generalErrorMessage = form.error?.messageFor(FormField.GENERAL),
         saveButtonEnabled = !form.saving && !form.closeRequested,
-        transferImportProgressVisible = form.qrReading,
-        transferImportButtonEnabled = !form.qrReading,
         closeRequested = form.closeRequested,
         listener = listener,
     )
@@ -182,50 +173,6 @@ internal class AddLockViewModel(
                 }
             }
         }
-    }
-
-    private fun readTransferQrImage(uri: Uri) {
-        if (form.value.qrReading) return
-        form.update { it.copy(qrReading = true, error = null) }
-        viewModelScope.launch {
-            val text = runCatching { qrImageDecoder.decode(uri) }.getOrNull()
-            form.update { current ->
-                val failure = { message: String -> current.copy(qrReading = false, error = FormError(FormField.GENERAL, message)) }
-                if (text == null) {
-                    failure("画像から QR コードを読み取れませんでした")
-                } else {
-                    when (val result = LockTransferCodec.decode(text)) {
-                        is LockTransferResult.Failure -> failure(result.error.message())
-                        is LockTransferResult.Success -> current.withTransferred(result)
-                    }
-                }
-            }
-        }
-    }
-
-    private fun Form.withTransferred(result: LockTransferResult.Success): Form = when (val credential = result.credential) {
-        is LockCredential.Ble -> copy(
-            qrReading = false,
-            name = result.displayName,
-            route = LockRoute.BLE,
-            keyText = SesameKeyImporter.exportJson(credential),
-        )
-
-        is LockCredential.Cloud -> copy(
-            qrReading = false,
-            name = result.displayName,
-            route = LockRoute.CLOUD,
-            cloudModel = credential.model,
-            deviceUuid = credential.deviceUuid,
-            apiKey = credential.apiKey,
-            secretKey = credential.secretKeyHex,
-        )
-    }
-
-    private fun LockTransferError.message(): String = when (this) {
-        LockTransferError.NOT_TRANSFER_DATA -> "このアプリで書き出した QR コードではありません"
-        LockTransferError.UNSUPPORTED_VERSION -> "新しい形式の QR コードです。アプリを更新してください"
-        LockTransferError.INVALID_CONTENT -> "QR コードの内容が正しくありません"
     }
 
     private fun parseBle(form: Form): Parsed = when (val result = SesameKeyImporter.import(form.keyText)) {
