@@ -169,7 +169,7 @@ private fun AddLockMenu(
                 },
             )
             DropdownMenuItem(
-                text = { Text("このアプリから追加") },
+                text = { Text("同じアプリからインポート") },
                 onClick = {
                     expanded = false
                     onAddFromThisAppClick()

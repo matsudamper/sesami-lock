@@ -48,7 +48,7 @@ internal fun ImportTransferScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("このアプリから追加") },
+                title = { Text("同じアプリからインポート") },
                 navigationIcon = {
                     IconButton(onClick = { uiState.listener.onBackClick() }) {
                         Icon(painter = painterResource(R.drawable.ic_arrow_back), contentDescription = "戻る")
