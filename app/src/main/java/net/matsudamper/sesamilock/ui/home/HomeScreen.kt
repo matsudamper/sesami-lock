@@ -21,7 +21,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -63,10 +64,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import net.matsudamper.sesamilock.R
 import net.matsudamper.sesamilock.ui.component.HoldToActivateButton
+import net.matsudamper.sesamilock.ui.component.rememberReorderState
 import net.matsudamper.sesamilock.ui.theme.lockStatusColors
 
 private const val ActionHoldMillis = 600
 private val actionButtonHeight = 56.dp
+private val LiftedCardElevation = 12.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,16 +135,7 @@ internal fun HomeScreen(
 
                 is HomeUiState.Content.Unrecoverable -> UnrecoverableContent(content)
 
-                is HomeUiState.Content.Locks -> LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    uiState.permissionBanner?.let { banner ->
-                        item { PermissionBanner(banner) }
-                    }
-                    items(content.cards) { card -> LockCard(card) }
-                }
+                is HomeUiState.Content.Locks -> LocksList(content = content, permissionBanner = uiState.permissionBanner)
             }
         }
     }
@@ -174,6 +168,34 @@ private fun AddLockMenu(
                     expanded = false
                     onAddFromThisAppClick()
                 },
+            )
+        }
+    }
+}
+
+@Composable
+private fun LocksList(content: HomeUiState.Content.Locks, permissionBanner: HomeUiState.PermissionBanner?, modifier: Modifier = Modifier) {
+    val listState = rememberLazyListState()
+    val reorderState = rememberReorderState(
+        listState = listState,
+        leadingItemCount = if (permissionBanner != null) 1 else 0,
+        onMove = content.listener::onMove,
+    )
+    LazyColumn(
+        state = listState,
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        permissionBanner?.let { banner ->
+            item { PermissionBanner(banner) }
+        }
+        itemsIndexed(content.cards) { index, card ->
+            LockCard(
+                card = card,
+                headerModifier = reorderState.dragModifier(index),
+                lifted = reorderState.isDragging(index),
+                modifier = reorderState.itemModifier(index),
             )
         }
     }
@@ -307,11 +329,18 @@ private fun UnrecoverableContent(content: HomeUiState.Content.Unrecoverable, mod
 }
 
 @Composable
-private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) {
+private fun LockCard(card: HomeUiState.LockCard, lifted: Boolean, modifier: Modifier = Modifier, headerModifier: Modifier = Modifier) {
     val statusColors = lockStatusColors()
-    Card(modifier = modifier.fillMaxWidth()) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (lifted) LiftedCardElevation else 0.dp),
+    ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(
+                modifier = headerModifier,
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
                 StatusBadge(icon = card.statusIcon, tone = card.statusTone, progressVisible = card.progressVisible)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(card.name, style = MaterialTheme.typography.titleMedium)
