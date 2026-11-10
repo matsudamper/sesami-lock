@@ -13,6 +13,7 @@ lifecycle = "2.11.0"
 androidxAnnotation = "1.11.0"
 gson = "2.15.0"
 zxing = "3.5.4"
+camerax = "1.6.2"
 
 [libraries]
 androidxActivityCompose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
@@ -26,6 +27,9 @@ kotlinxCoroutinesAndroid = { group = "org.jetbrains.kotlinx", name = "kotlinx-co
 kotlinxCoroutinesTest = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 kotlinxSerializationJson = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+cameraCamera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
+cameraLifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
+cameraView = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 zxingCore = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 ktlintCli = { group = "com.pinterest.ktlint", name = "ktlint-cli", version.ref = "ktlint" }
 detektCompose = { group = "io.nlopez.compose.rules", name = "detekt", version.ref = "detektCompose" }
