@@ -3,9 +3,27 @@
 CANDY HOUSE SESAME スマートロックを操作する個人利用の Android アプリ。
 最優先の目的は「意図しない解錠を防ぐ」こと。トグル操作・状態の取り違え・重複送信・自動再送をしない。
 
-## ビルド
+## セットアップ
 
-JDK 25とAndroid SDKを用意して、以下を実行します。
+公式 SDK をサブモジュールで取り込んでいるので、サブモジュールごと取得する。
+
+```sh
+git clone --recurse-submodules https://github.com/matsudamper/sesami-lock.git
+```
+
+クローン済みの場合は以下を実行する。
+
+```sh
+git submodule update --init --recursive
+```
+
+JDK 25 と Android SDK を用意する。Android SDK は `.claude/setup.sh` でも導入できる（`local.properties` の `sdk.dir` も書き込む）。
+
+```sh
+bash .claude/setup.sh
+```
+
+## ビルド
 
 ```sh
 ./gradlew assembleDebug ktlintCheck detekt
@@ -20,7 +38,7 @@ JDK 25とAndroid SDKを用意して、以下を実行します。
 | `:sesame:ble` | 公式 SDK による BLE 経路 `SesameBleTransport` |
 | `:sesame:cloud` | Web API による クラウド経路 `SesameCloudTransport` |
 | `:sesame:credential` | Android Keystore（AES-GCM）で暗号化した鍵情報の保存 `EncryptedLockRepository` |
-| `:vendor:sesame-sdk` | 公式 SDK `sesameSdk` のソース固定取り込み（commit `9b1e8a8`、最小限のパッチあり） |
+| `:vendor:sesame-sdk` | 公式 SDK `sesameSdk` をサブモジュールで固定取り込み（commit `9b1e8a8`、最小限のパッチあり。`vendor/sesame-sdk/README.md` 参照） |
 
 `:app` 以外はアプリに依存しないライブラリとして使える。`LockTransport` を実装すれば別の経路も同じ安全制御に載せられる。
 
