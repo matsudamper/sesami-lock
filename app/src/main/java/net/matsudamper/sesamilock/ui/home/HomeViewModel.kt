@@ -218,7 +218,7 @@ internal class HomeViewModel(
             displayState == LockDisplayState.STALE || displayState == LockDisplayState.DISCONNECTED ->
                 "${LockTexts.previousState(observation.state)}（$observedAgo）"
 
-            else -> "$observedAgo に確認 ・ ${LockTexts.route(lock.route)}"
+            else -> "確認 $observedAgo ・ ${LockTexts.route(lock.route)}"
         }
         val inProgress = phase as? CommandPhase.InProgress
         val operable = !deviceBusy && !registrationRejected
