@@ -116,13 +116,14 @@ internal fun AddLockScreen(
 private fun BleInputContent(input: AddLockUiState.BleInput, listener: AddLockUiState.Listener, modifier: Modifier = Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            "公式アプリの「鍵をシェア」で表示した QR コードを撮影するかスクリーンショットを選ぶか、QR の内容を貼り付けてください。",
+            "公式アプリの「鍵をシェア」で表示した QR コードをカメラで読み取るかスクリーンショットを選ぶか、QR の内容を貼り付けてください。",
             style = MaterialTheme.typography.bodyMedium,
         )
         QrImageSourceButtons(
             enabled = input.qrPickButtonEnabled,
             progressVisible = input.qrReadingProgressVisible,
-            onImageReady = { listener.onQrImagePicked(it) },
+            onImagePicked = { listener.onQrImagePicked(it) },
+            onQrScanned = { listener.onQrScanned(it) },
             modifier = Modifier.fillMaxWidth(),
         )
         SecretTextField(

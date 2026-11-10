@@ -57,6 +57,8 @@ internal data class EditLockUiState(
 
         fun onQrImagePicked(uri: Uri)
 
+        fun onQrScanned(text: String)
+
         fun onDeviceUuidChange(value: String)
 
         fun onApiKeyChange(value: String)

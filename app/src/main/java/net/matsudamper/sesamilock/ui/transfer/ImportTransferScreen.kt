@@ -65,13 +65,14 @@ internal fun ImportTransferScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
-                "他の端末のこのアプリで、鍵のメニューの「共有」から表示した QR コードを撮影するか、スクリーンショットを選んでください。",
+                "他の端末のこのアプリで、鍵のメニューの「共有」から表示した QR コードをカメラで読み取るか、スクリーンショットを選んでください。",
                 style = MaterialTheme.typography.bodyMedium,
             )
             QrImageSourceButtons(
                 enabled = uiState.readButtonEnabled,
                 progressVisible = uiState.readProgressVisible,
-                onImageReady = { uiState.listener.onQrImagePicked(it) },
+                onImagePicked = { uiState.listener.onQrImagePicked(it) },
+                onQrScanned = { uiState.listener.onQrScanned(it) },
                 modifier = Modifier.fillMaxWidth(),
             )
             uiState.preview?.let { preview ->

@@ -64,6 +64,11 @@ internal class AddLockViewModel(
             readQrImage(uri)
         }
 
+        override fun onQrScanned(text: String) {
+            if (form.value.qrReading) return
+            form.update { it.copy(keyText = text, error = null) }
+        }
+
         override fun onDeviceUuidChange(value: String) {
             form.update { it.copy(deviceUuid = value, error = null) }
         }

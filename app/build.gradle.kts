@@ -61,4 +61,7 @@ dependencies {
     implementation(libs.androidxLifecycleRuntimeCompose)
     implementation(libs.kotlinxCoroutinesAndroid)
     implementation(libs.zxingCore)
+    implementation(libs.cameraCamera2)
+    implementation(libs.cameraLifecycle)
+    implementation(libs.cameraView)
 }

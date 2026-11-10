@@ -42,6 +42,11 @@ internal class ImportTransferViewModel(
             readQrImage(uri)
         }
 
+        override fun onQrScanned(text: String) {
+            if (form.value.reading) return
+            form.update { it.withTransferText(text) }
+        }
+
         override fun onNameChange(value: String) {
             form.update { it.copy(name = value, errorMessage = null) }
         }
@@ -89,13 +94,15 @@ internal class ImportTransferViewModel(
                 if (text == null) {
                     current.copy(reading = false, errorMessage = "画像から QR コードを読み取れませんでした")
                 } else {
-                    when (val result = LockTransferCodec.decode(text)) {
-                        is LockTransferResult.Failure -> current.copy(reading = false, loaded = null, errorMessage = result.error.message())
-                        is LockTransferResult.Success -> current.copy(reading = false, loaded = result, name = result.displayName)
-                    }
+                    current.withTransferText(text)
                 }
             }
         }
+    }
+
+    private fun Form.withTransferText(text: String): Form = when (val result = LockTransferCodec.decode(text)) {
+        is LockTransferResult.Failure -> copy(reading = false, loaded = null, errorMessage = result.error.message())
+        is LockTransferResult.Success -> copy(reading = false, loaded = result, name = result.displayName, errorMessage = null)
     }
 
     private fun save() {

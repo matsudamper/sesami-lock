@@ -131,7 +131,8 @@ private fun BleInputContent(input: EditLockUiState.BleInput, listener: EditLockU
         QrImageSourceButtons(
             enabled = input.qrPickButtonEnabled,
             progressVisible = input.qrReadingProgressVisible,
-            onImageReady = { listener.onQrImagePicked(it) },
+            onImagePicked = { listener.onQrImagePicked(it) },
+            onQrScanned = { listener.onQrScanned(it) },
             modifier = Modifier.fillMaxWidth(),
         )
         SecretTextField(

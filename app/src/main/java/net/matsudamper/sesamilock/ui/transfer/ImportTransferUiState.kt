@@ -23,6 +23,8 @@ internal data class ImportTransferUiState(
     interface Listener {
         fun onQrImagePicked(uri: Uri)
 
+        fun onQrScanned(text: String)
+
         fun onNameChange(value: String)
 
         fun onSaveClick()
