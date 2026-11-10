@@ -65,7 +65,7 @@ internal fun ImportTransferScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
-                "他の端末のこのアプリで、鍵のメニューの「共有」から表示した QR コードをカメラで読み取るか、スクリーンショットを選んでください。",
+                "他の端末のこのアプリで、鍵のメニューの「エクスポート」から表示した QR コードをカメラで読み取るか、スクリーンショットを選んでください。",
                 style = MaterialTheme.typography.bodyMedium,
             )
             QrImageSourceButtons(

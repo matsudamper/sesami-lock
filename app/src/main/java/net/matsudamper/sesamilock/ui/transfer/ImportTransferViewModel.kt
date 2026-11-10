@@ -137,7 +137,7 @@ internal class ImportTransferViewModel(
     }
 
     private fun LockTransferError.message(): String = when (this) {
-        LockTransferError.NOT_TRANSFER_DATA -> "このアプリで共有した QR コードではありません"
+        LockTransferError.NOT_TRANSFER_DATA -> "このアプリでエクスポートした QR コードではありません"
         LockTransferError.UNSUPPORTED_VERSION -> "新しい形式の QR コードです。アプリを更新してください"
         LockTransferError.INVALID_CONTENT -> "QR コードの内容が正しくありません"
     }

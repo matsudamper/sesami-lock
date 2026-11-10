@@ -8,7 +8,7 @@ internal data class HomeUiState(
     val content: Content,
     val permissionBanner: PermissionBanner?,
     val deleteConfirmation: DeleteConfirmation?,
-    val shareQr: ShareQr?,
+    val exportQr: ExportQr?,
     val snackbar: Snackbar?,
     val pullRefreshIndicatorVisible: Boolean,
     val editScreenRequested: Boolean,
@@ -81,10 +81,10 @@ internal data class HomeUiState(
     )
 
     @Immutable
-    data class ShareQr(
+    data class ExportQr(
         val lockName: String,
         val image: ImageBitmap,
-        val listener: ShareQrListener,
+        val listener: ExportQrListener,
     )
 
     interface Listener {
@@ -110,7 +110,7 @@ internal data class HomeUiState(
 
         fun onCancelClick()
 
-        fun onShareClick()
+        fun onExportClick()
 
         fun onEditClick()
 
@@ -125,7 +125,7 @@ internal data class HomeUiState(
         fun onPermissionResult()
     }
 
-    interface ShareQrListener {
+    interface ExportQrListener {
         fun onDismiss()
     }
 

@@ -147,7 +147,7 @@ internal fun HomeScreen(
     }
 
     uiState.deleteConfirmation?.let { DeleteConfirmationDialog(it) }
-    uiState.shareQr?.let { ShareQrDialog(it) }
+    uiState.exportQr?.let { ExportQrDialog(it) }
 }
 
 @Composable
@@ -323,7 +323,7 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier) 
                     Text(card.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 LockCardMenu(
-                    onShareClick = { card.listener.onShareClick() },
+                    onExportClick = { card.listener.onExportClick() },
                     onEditClick = { card.listener.onEditClick() },
                     onDeleteClick = { card.listener.onDeleteClick() },
                 )
@@ -443,7 +443,7 @@ private fun StatusBadge(icon: HomeUiState.StatusIcon, tone: HomeUiState.Tone, pr
 }
 
 @Composable
-private fun LockCardMenu(onShareClick: () -> Unit, onEditClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun LockCardMenu(onExportClick: () -> Unit, onEditClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         IconButton(onClick = { expanded = true }) {
@@ -451,10 +451,10 @@ private fun LockCardMenu(onShareClick: () -> Unit, onEditClick: () -> Unit, onDe
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text("共有") },
+                text = { Text("エクスポート") },
                 onClick = {
                     expanded = false
-                    onShareClick()
+                    onExportClick()
                 },
             )
             DropdownMenuItem(
@@ -476,15 +476,15 @@ private fun LockCardMenu(onShareClick: () -> Unit, onEditClick: () -> Unit, onDe
 }
 
 @Composable
-private fun ShareQrDialog(shareQr: HomeUiState.ShareQr, modifier: Modifier = Modifier) {
+private fun ExportQrDialog(exportQr: HomeUiState.ExportQr, modifier: Modifier = Modifier) {
     AlertDialog(
-        onDismissRequest = { shareQr.listener.onDismiss() },
+        onDismissRequest = { exportQr.listener.onDismiss() },
         modifier = modifier,
-        title = { Text("「${shareQr.lockName}」を共有") },
+        title = { Text("「${exportQr.lockName}」をエクスポート") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Image(
-                    bitmap = shareQr.image,
+                    bitmap = exportQr.image,
                     contentDescription = "鍵の QR コード",
                     filterQuality = FilterQuality.None,
                     modifier = Modifier
@@ -498,7 +498,7 @@ private fun ShareQrDialog(shareQr: HomeUiState.ShareQr, modifier: Modifier = Mod
             }
         },
         confirmButton = {
-            TextButton(onClick = { shareQr.listener.onDismiss() }) { Text("閉じる") }
+            TextButton(onClick = { exportQr.listener.onDismiss() }) { Text("閉じる") }
         },
     )
 }

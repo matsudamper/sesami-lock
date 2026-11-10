@@ -60,7 +60,7 @@ internal class HomeViewModel(
     private val viewState = MutableStateFlow(
         ViewState(
             pendingDeleteLockId = null,
-            shareQr = null,
+            exportQr = null,
             blePermissionsGranted = blePermissions.isGranted(),
             messages = mapOf(),
             invalidCredentialLockIds = setOf(),
@@ -187,7 +187,7 @@ internal class HomeViewModel(
                 null
             },
             deleteConfirmation = view.pendingDeleteLockId?.let { id -> models.firstOrNull { it.lock.id == id } }?.let(::createDeleteConfirmation),
-            shareQr = view.shareQr?.let(::createShareQr),
+            exportQr = view.exportQr?.let(::createExportQr),
             snackbar = models.firstNotNullOfOrNull { createSnackbar(it, view) },
             pullRefreshIndicatorVisible = view.pullRefreshing,
             editScreenRequested = view.editScreenRequested,
@@ -312,14 +312,14 @@ internal class HomeViewModel(
             }
         }
 
-        override fun onShareClick() {
+        override fun onExportClick() {
             val image = try {
                 QrCodeEncoder.encode(LockTransferCodec.encode(lock)).asImageBitmap()
             } catch (_: WriterException) {
                 showMessage(lock.id, "鍵の情報が大きすぎて QR コードにできません。表示名を短くしてください")
                 return
             }
-            viewState.update { it.copy(shareQr = ShareQrSource(lock.displayName, image)) }
+            viewState.update { it.copy(exportQr = ExportQrSource(lock.displayName, image)) }
         }
 
         override fun onEditClick() {
@@ -366,12 +366,12 @@ internal class HomeViewModel(
         return snackbar
     }
 
-    private fun createShareQr(source: ShareQrSource): HomeUiState.ShareQr = HomeUiState.ShareQr(
+    private fun createExportQr(source: ExportQrSource): HomeUiState.ExportQr = HomeUiState.ExportQr(
         lockName = source.lockName,
         image = source.image,
-        listener = object : HomeUiState.ShareQrListener {
+        listener = object : HomeUiState.ExportQrListener {
             override fun onDismiss() {
-                viewState.update { it.copy(shareQr = null) }
+                viewState.update { it.copy(exportQr = null) }
             }
         },
     )
@@ -454,11 +454,11 @@ internal class HomeViewModel(
 
     private fun transport(lock: RegisteredLock): LockTransport = transports.getValue(lock.route)
 
-    private data class ShareQrSource(val lockName: String, val image: ImageBitmap)
+    private data class ExportQrSource(val lockName: String, val image: ImageBitmap)
 
     private data class ViewState(
         val pendingDeleteLockId: LockId?,
-        val shareQr: ShareQrSource?,
+        val exportQr: ExportQrSource?,
         val blePermissionsGranted: Boolean,
         val messages: Map<LockId, String>,
         val invalidCredentialLockIds: Set<LockId>,
