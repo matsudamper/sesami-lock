@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
 
 @Stable
 internal class ReorderState(
@@ -39,9 +40,18 @@ internal class ReorderState(
         )
     }
 
+    fun isDragging(index: Int): Boolean = draggingIndex == index
+
     fun itemModifier(index: Int): Modifier {
         val translation = translationOf(index)
-        return Modifier.graphicsLayer { translationY = translation }
+        val scale = if (isDragging(index)) DraggingScale else 1f
+        return Modifier
+            .zIndex(if (isDragging(index)) 1f else 0f)
+            .graphicsLayer {
+                translationY = translation
+                scaleX = scale
+                scaleY = scale
+            }
     }
 
     private fun translationOf(index: Int): Float {
@@ -97,3 +107,5 @@ internal fun rememberReorderState(
         ReorderState(listState, leadingItemCount) { from, to -> latestOnMove(from, to) }
     }
 }
+
+private const val DraggingScale = 1.03f

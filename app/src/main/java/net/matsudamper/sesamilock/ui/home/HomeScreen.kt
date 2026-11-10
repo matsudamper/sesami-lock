@@ -69,6 +69,7 @@ import net.matsudamper.sesamilock.ui.theme.lockStatusColors
 
 private const val ActionHoldMillis = 600
 private val actionButtonHeight = 56.dp
+private val LiftedCardElevation = 12.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -193,6 +194,7 @@ private fun LocksList(content: HomeUiState.Content.Locks, permissionBanner: Home
             LockCard(
                 card = card,
                 headerModifier = reorderState.dragModifier(index),
+                lifted = reorderState.isDragging(index),
                 modifier = reorderState.itemModifier(index),
             )
         }
@@ -327,9 +329,12 @@ private fun UnrecoverableContent(content: HomeUiState.Content.Unrecoverable, mod
 }
 
 @Composable
-private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier, headerModifier: Modifier = Modifier) {
+private fun LockCard(card: HomeUiState.LockCard, lifted: Boolean, modifier: Modifier = Modifier, headerModifier: Modifier = Modifier) {
     val statusColors = lockStatusColors()
-    Card(modifier = modifier.fillMaxWidth()) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (lifted) LiftedCardElevation else 0.dp),
+    ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(
                 modifier = headerModifier,
