@@ -20,7 +20,7 @@ internal data class HomeUiState(
 
         data object Empty : Content
 
-        data class Locks(val cards: List<LockCard>) : Content
+        data class Locks(val cards: List<LockCard>, val listener: LocksListener) : Content
     }
 
     @Immutable
@@ -84,6 +84,10 @@ internal data class HomeUiState(
         fun onPullToRefresh()
 
         fun onEditScreenOpened()
+    }
+
+    interface LocksListener {
+        fun onMove(fromIndex: Int, toIndex: Int)
     }
 
     interface UnrecoverableListener {

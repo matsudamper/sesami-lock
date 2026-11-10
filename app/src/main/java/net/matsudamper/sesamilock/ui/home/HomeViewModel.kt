@@ -118,6 +118,12 @@ internal class HomeViewModel(
         }
     }
 
+    private val locksListener = object : HomeUiState.LocksListener {
+        override fun onMove(fromIndex: Int, toIndex: Int) {
+            viewModelScope.launch { repository.move(fromIndex, toIndex) }
+        }
+    }
+
     private val unrecoverableListener = object : HomeUiState.UnrecoverableListener {
         override fun onDeleteAllClick() {
             viewModelScope.launch { repository.deleteAll() }
@@ -172,6 +178,7 @@ internal class HomeViewModel(
                                 credentialInvalid = it.lock.id in view.invalidCredentialLockIds,
                             )
                         },
+                        locksListener,
                     )
                 }
             },

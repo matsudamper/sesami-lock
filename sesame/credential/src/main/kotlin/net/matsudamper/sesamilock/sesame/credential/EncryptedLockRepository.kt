@@ -66,6 +66,16 @@ public class EncryptedLockRepository(context: Context) {
         }
     }
 
+    public suspend fun move(fromIndex: Int, toIndex: Int) {
+        mutex.withLock {
+            val current = (mutableState.value as? LockRepositoryState.Loaded)?.locks ?: return@withLock
+            if (fromIndex !in current.indices || toIndex !in current.indices || fromIndex == toIndex) return@withLock
+            val updated = current.toMutableList().apply { add(toIndex, removeAt(fromIndex)) }
+            withContext(Dispatchers.IO) { write(updated) }
+            mutableState.value = LockRepositoryState.Loaded(updated)
+        }
+    }
+
     /**
      * [originalId] の鍵を [lock] に置き換える。UUID を変えると ID も変わるため、変更後の ID がほかの鍵と重なる場合は保存しない。
      */
