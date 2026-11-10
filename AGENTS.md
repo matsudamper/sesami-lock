@@ -9,7 +9,7 @@ CANDY HOUSE SESAME スマートロックを、意図しない解錠を防ぐ設�
 - `/sesame/ble` — 公式 SDK を使った BLE 経路の `LockTransport` 実装
 - `/sesame/cloud` — Web API を使ったクラウド経路の `LockTransport` 実装（AES-CMAC 署名）
 - `/sesame/credential` — Android Keystore で暗号化した鍵情報の保存
-- `/vendor/sesame-sdk` — 公式 SDK をサブモジュール（`upstream/`）で固定取り込み。lint 対象外。サブモジュールは編集せず、安全上必要な最小限のパッチだけを `patched/` に置き、`vendor/sesame-sdk/README.md` に記録する
+- `/vendor/sesame-sdk` — 公式 SDK をサブモジュール（`upstream/`）で固定取り込み。lint 対象外。安全上必要な最小限のパッチだけを fork の `sesami-lock-patch` ブランチにコミットし、`vendor/sesame-sdk/README.md` に記録する
 
 ## 安全上の不変条件
 - `toggle()` / `cmd=88` を呼ばない。`NoToggleUsageTest` で検査している

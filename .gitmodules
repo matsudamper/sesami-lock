@@ -1,3 +1,4 @@
 [submodule "vendor/sesame-sdk/upstream"]
 	path = vendor/sesame-sdk/upstream
-	url = https://github.com/CANDY-HOUSE/SesameSDK_Android_with_DemoApp.git
+	url = https://github.com/matsudamper/SesameSDK_Android_with_DemoApp.git
+	branch = sesami-lock-patch
