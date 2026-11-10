@@ -13,13 +13,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.zIndex
 
 @Stable
 internal class ReorderState(
     private val listState: LazyListState,
     private val leadingItemCount: Int,
+    private val haptic: HapticFeedback,
     private val onMove: (fromIndex: Int, toIndex: Int) -> Unit,
 ) {
     private var draggingIndex by mutableStateOf<Int?>(null)
@@ -28,6 +32,7 @@ internal class ReorderState(
     fun dragModifier(index: Int): Modifier = Modifier.pointerInput(index) {
         detectDragGesturesAfterLongPress(
             onDragStart = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 draggingIndex = index
                 dragOffset = 0f
             },
@@ -87,6 +92,7 @@ internal class ReorderState(
         val from = draggingIndex
         val target = from?.let { targetIndex(it) }
         reset()
+        haptic.performHapticFeedback(HapticFeedbackType.GestureEnd)
         if (from != null && target != null && from != target) onMove(from, target)
     }
 
@@ -102,9 +108,10 @@ internal fun rememberReorderState(
     leadingItemCount: Int,
     onMove: (fromIndex: Int, toIndex: Int) -> Unit,
 ): ReorderState {
+    val haptic = LocalHapticFeedback.current
     val latestOnMove by rememberUpdatedState(onMove)
-    return remember(listState, leadingItemCount) {
-        ReorderState(listState, leadingItemCount) { from, to -> latestOnMove(from, to) }
+    return remember(listState, leadingItemCount, haptic) {
+        ReorderState(listState, leadingItemCount, haptic) { from, to -> latestOnMove(from, to) }
     }
 }
 
