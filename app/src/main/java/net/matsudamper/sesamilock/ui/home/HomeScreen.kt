@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -53,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -71,7 +74,8 @@ private val actionButtonHeight = 56.dp
 @Composable
 internal fun HomeScreen(
     uiState: HomeUiState,
-    onAddLockClick: () -> Unit,
+    onAddFromSesameAppClick: () -> Unit,
+    onAddFromThisAppClick: () -> Unit,
     onDiagnosticsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -97,8 +101,13 @@ internal fun HomeScreen(
             TopAppBar(
                 title = { Text("SESAME") },
                 actions = {
-                    IconButton(onClick = onAddLockClick) {
-                        Icon(painter = painterResource(R.drawable.ic_add), contentDescription = "鍵を追加")
+                    AddLockMenu(
+                        onAddFromSesameAppClick = onAddFromSesameAppClick,
+                        onAddFromThisAppClick = onAddFromThisAppClick,
+                    ) { onClick ->
+                        IconButton(onClick = onClick) {
+                            Icon(painter = painterResource(R.drawable.ic_add), contentDescription = "鍵を追加")
+                        }
                     }
                     OverflowMenu(onDiagnosticsClick = onDiagnosticsClick, onSettingsClick = onSettingsClick)
                 },
@@ -118,7 +127,10 @@ internal fun HomeScreen(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
 
-                HomeUiState.Content.Empty -> EmptyContent(onAddLockClick = onAddLockClick)
+                HomeUiState.Content.Empty -> EmptyContent(
+                    onAddFromSesameAppClick = onAddFromSesameAppClick,
+                    onAddFromThisAppClick = onAddFromThisAppClick,
+                )
 
                 is HomeUiState.Content.Unrecoverable -> UnrecoverableContent(content)
 
@@ -128,6 +140,36 @@ internal fun HomeScreen(
     }
 
     uiState.deleteConfirmation?.let { DeleteConfirmationDialog(it) }
+    uiState.exportQr?.let { ExportQrDialog(it) }
+}
+
+@Composable
+private fun AddLockMenu(
+    onAddFromSesameAppClick: () -> Unit,
+    onAddFromThisAppClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    trigger: @Composable (onClick: () -> Unit) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        trigger { expanded = true }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("SESAME アプリから追加") },
+                onClick = {
+                    expanded = false
+                    onAddFromSesameAppClick()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("同じアプリからインポート") },
+                onClick = {
+                    expanded = false
+                    onAddFromThisAppClick()
+                },
+            )
+        }
+    }
 }
 
 @Composable
@@ -215,7 +257,7 @@ private fun PermissionBanner(banner: HomeUiState.PermissionBanner, modifier: Mod
 }
 
 @Composable
-private fun EmptyContent(onAddLockClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun EmptyContent(onAddFromSesameAppClick: () -> Unit, onAddFromThisAppClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -235,7 +277,12 @@ private fun EmptyContent(onAddLockClick: () -> Unit, modifier: Modifier = Modifi
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )
-        Button(onClick = onAddLockClick) { Text("鍵を追加") }
+        AddLockMenu(
+            onAddFromSesameAppClick = onAddFromSesameAppClick,
+            onAddFromThisAppClick = onAddFromThisAppClick,
+        ) { onClick ->
+            Button(onClick = onClick) { Text("鍵を追加") }
+        }
     }
 }
 
@@ -300,6 +347,7 @@ private fun LockCard(card: HomeUiState.LockCard, modifier: Modifier = Modifier, 
                     Text(card.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 LockCardMenu(
+                    onExportClick = { card.listener.onExportClick() },
                     onEditClick = { card.listener.onEditClick() },
                     onDeleteClick = { card.listener.onDeleteClick() },
                 )
@@ -419,13 +467,20 @@ private fun StatusBadge(icon: HomeUiState.StatusIcon, tone: HomeUiState.Tone, pr
 }
 
 @Composable
-private fun LockCardMenu(onEditClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun LockCardMenu(onExportClick: () -> Unit, onEditClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         IconButton(onClick = { expanded = true }) {
             Icon(painter = painterResource(R.drawable.ic_more_vert), contentDescription = "その他")
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("エクスポート") },
+                onClick = {
+                    expanded = false
+                    onExportClick()
+                },
+            )
             DropdownMenuItem(
                 text = { Text("編集") },
                 onClick = {
@@ -442,6 +497,34 @@ private fun LockCardMenu(onEditClick: () -> Unit, onDeleteClick: () -> Unit, mod
             )
         }
     }
+}
+
+@Composable
+private fun ExportQrDialog(exportQr: HomeUiState.ExportQr, modifier: Modifier = Modifier) {
+    AlertDialog(
+        onDismissRequest = { exportQr.listener.onDismiss() },
+        modifier = modifier,
+        title = { Text("「${exportQr.lockName}」をエクスポート") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Image(
+                    bitmap = exportQr.image,
+                    contentDescription = "鍵の QR コード",
+                    filterQuality = FilterQuality.None,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f),
+                )
+                Text(
+                    "このアプリで取り込むための QR コードです。鍵の秘密情報が含まれるため、他人に見せないでください。",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { exportQr.listener.onDismiss() }) { Text("閉じる") }
+        },
+    )
 }
 
 @Composable
