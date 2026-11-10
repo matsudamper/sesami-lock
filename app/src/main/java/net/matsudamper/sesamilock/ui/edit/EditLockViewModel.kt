@@ -50,6 +50,11 @@ internal class EditLockViewModel(
             readQrImage(uri)
         }
 
+        override fun onQrScanned(text: String) {
+            if ((state.value as? State.Editing)?.form?.qrReading == true) return
+            updateForm { it.copy(keyText = text, error = null) }
+        }
+
         override fun onDeviceUuidChange(value: String) {
             updateForm { it.copy(deviceUuid = value, error = null) }
         }
