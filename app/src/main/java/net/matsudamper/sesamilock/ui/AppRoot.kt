@@ -22,6 +22,7 @@ import net.matsudamper.sesamilock.ui.edit.EditLockViewModel
 import net.matsudamper.sesamilock.ui.home.HomeScreen
 import net.matsudamper.sesamilock.ui.home.HomeViewModel
 import net.matsudamper.sesamilock.ui.settings.SettingsScreen
+import net.matsudamper.sesamilock.ui.settings.SettingsViewModel
 import net.matsudamper.sesamilock.ui.transfer.ImportTransferScreen
 import net.matsudamper.sesamilock.ui.transfer.ImportTransferViewModel
 
@@ -114,10 +115,15 @@ internal fun AppRoot(
             )
         }
 
-        Destination.SETTINGS -> SettingsScreen(
-            onBack = { destination = Destination.HOME },
-            modifier = modifier,
-        )
+        Destination.SETTINGS -> {
+            val viewModel = viewModel { SettingsViewModel(graph.nfcOpenAppTagWriter) }
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            SettingsScreen(
+                uiState = uiState,
+                onBack = { destination = Destination.HOME },
+                modifier = modifier,
+            )
+        }
 
         Destination.EDIT_LOCK -> {
             val lockId = graph.editLockSelection.lockId
