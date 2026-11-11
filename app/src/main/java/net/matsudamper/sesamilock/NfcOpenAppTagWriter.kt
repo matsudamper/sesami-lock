@@ -39,6 +39,8 @@ internal class NfcOpenAppTagWriter(private val context: Context) {
             NfcWriteResult.Failed
         } catch (_: FormatException) {
             NfcWriteResult.Failed
+        } catch (_: SecurityException) {
+            NfcWriteResult.Failed
         }
     }
 
