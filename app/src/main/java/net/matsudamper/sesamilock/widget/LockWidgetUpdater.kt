@@ -73,7 +73,11 @@ internal class LockWidgetUpdater(
         combine(
             locks.map { lock ->
                 combine(transports.getValue(lock.route).snapshot(lock.id), coordinator.phase(lock.id)) { snapshot, phase ->
-                    lock.id.value to WidgetLock(lock.displayName, status(snapshot, phase))
+                    lock.id.value to WidgetLock(
+                        name = lock.displayName,
+                        observedStatusIfKnown = observedStatus(snapshot),
+                        inProgressLabel = (phase as? CommandPhase.InProgress)?.let(LockTexts::inProgress),
+                    )
                 }
             },
         ) { it.toMap() }
@@ -94,6 +98,7 @@ internal class LockWidgetUpdater(
                 preferences[LockWidgetKeys.statusLabel] = "鍵が削除されました"
                 preferences[LockWidgetKeys.statusIcon] = LockWidgetIcon.UNKNOWN.name
                 preferences.remove(LockWidgetKeys.detail)
+                preferences.remove(LockWidgetKeys.inProgressLabel)
             } else {
                 preferences.write(lock)
             }
@@ -103,34 +108,31 @@ internal class LockWidgetUpdater(
 
     private fun MutablePreferences.write(lock: WidgetLock) {
         this[LockWidgetKeys.name] = lock.name
-        val status = lock.statusIfKnown ?: return
+        if (lock.inProgressLabel == null) {
+            remove(LockWidgetKeys.inProgressLabel)
+        } else {
+            this[LockWidgetKeys.inProgressLabel] = lock.inProgressLabel
+        }
+        val status = lock.observedStatusIfKnown ?: return
         this[LockWidgetKeys.statusLabel] = status.label
         this[LockWidgetKeys.statusIcon] = status.icon.name
         this[LockWidgetKeys.detail] = status.detail
     }
 
-    private fun status(snapshot: LockSnapshot, phase: CommandPhase): WidgetStatus? {
-        val inProgress = phase as? CommandPhase.InProgress
-        val observation = snapshot.observation
-        val observedDetail = observation?.let { "確認 ${LockTexts.time(it.observedAtWallMillis)}" }.orEmpty()
-        return when {
-            inProgress != null -> WidgetStatus(LockTexts.inProgress(inProgress), LockWidgetIcon.MOVING, observedDetail)
-
-            observation != null -> WidgetStatus(
-                label = LockTexts.previousState(observation.state),
-                icon = when (observation.state) {
-                    MechanicalState.LOCKED -> LockWidgetIcon.LOCKED
-                    MechanicalState.UNLOCKED_VERIFIED, MechanicalState.OUT_OF_LOCK_RANGE -> LockWidgetIcon.UNLOCKED
-                    MechanicalState.MOVING -> LockWidgetIcon.MOVING
-                },
-                detail = observedDetail,
-            )
-
-            else -> null
-        }
+    private fun observedStatus(snapshot: LockSnapshot): WidgetStatus? {
+        val observation = snapshot.observation ?: return null
+        return WidgetStatus(
+            label = LockTexts.previousState(observation.state),
+            icon = when (observation.state) {
+                MechanicalState.LOCKED -> LockWidgetIcon.LOCKED
+                MechanicalState.UNLOCKED_VERIFIED, MechanicalState.OUT_OF_LOCK_RANGE -> LockWidgetIcon.UNLOCKED
+                MechanicalState.MOVING -> LockWidgetIcon.MOVING
+            },
+            detail = "確認 ${LockTexts.time(observation.observedAtWallMillis)}",
+        )
     }
 
-    private data class WidgetLock(val name: String, val statusIfKnown: WidgetStatus?)
+    private data class WidgetLock(val name: String, val observedStatusIfKnown: WidgetStatus?, val inProgressLabel: String?)
 
     private data class WidgetStatus(val label: String, val icon: LockWidgetIcon, val detail: String)
 }

@@ -48,17 +48,22 @@ internal class LockWidget : GlanceAppWidget() {
         provideContent {
             val preferences = currentState<Preferences>()
             val lockIdValue = preferences[LockWidgetKeys.lockId]
+            val inProgressLabel = preferences[LockWidgetKeys.inProgressLabel]
             GlanceTheme {
                 if (lockIdValue == null) {
                     UnconfiguredContent(onClick = actionStartActivity(Intent(context, MainActivity::class.java)))
                 } else {
                     LockContent(
                         name = preferences[LockWidgetKeys.name].orEmpty(),
-                        statusLabel = preferences[LockWidgetKeys.statusLabel] ?: "状態不明",
+                        statusLabel = inProgressLabel ?: preferences[LockWidgetKeys.statusLabel] ?: "状態不明",
                         detail = preferences[LockWidgetKeys.detail].orEmpty(),
-                        icon = preferences[LockWidgetKeys.statusIcon]
-                            ?.let { stored -> LockWidgetIcon.entries.firstOrNull { it.name == stored } }
-                            ?: LockWidgetIcon.UNKNOWN,
+                        icon = if (inProgressLabel != null) {
+                            LockWidgetIcon.MOVING
+                        } else {
+                            preferences[LockWidgetKeys.statusIcon]
+                                ?.let { stored -> LockWidgetIcon.entries.firstOrNull { it.name == stored } }
+                                ?: LockWidgetIcon.UNKNOWN
+                        },
                         onClick = actionStartActivity(LockOverlayActivity.createIntent(context, lockIdValue)),
                     )
                 }

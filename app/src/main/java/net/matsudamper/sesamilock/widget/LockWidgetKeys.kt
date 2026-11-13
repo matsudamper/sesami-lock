@@ -10,6 +10,7 @@ internal object LockWidgetKeys {
     val statusLabel = stringPreferencesKey("status_label")
     val statusIcon = stringPreferencesKey("status_icon")
     val detail = stringPreferencesKey("detail")
+    val inProgressLabel = stringPreferencesKey("in_progress_label")
 }
 
 internal enum class LockWidgetIcon {
