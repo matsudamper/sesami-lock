@@ -6,6 +6,8 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
+import android.widget.RemoteViews
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -35,7 +37,7 @@ public class LockWidgetController(
         )
         AppWidgetManager.getInstance(context).requestPinAppWidget(
             ComponentName(context, LockWidgetReceiver::class.java),
-            null,
+            Bundle().apply { putParcelable(AppWidgetManager.EXTRA_APPWIDGET_PREVIEW, createPinPreview(latestContents?.get(lockKey))) },
             callback,
         )
     }
@@ -58,6 +60,32 @@ public class LockWidgetController(
             }
             LockWidget().update(context, glanceId)
         }
+    }
+
+    private fun createPinPreview(content: LockWidgetContent?): RemoteViews {
+        val preview = RemoteViews(context.packageName, R.layout.lock_widget_preview)
+        if (content == null) return preview
+        val icon = if (content.inProgressLabel != null) {
+            LockWidgetIcon.MOVING
+        } else {
+            content.observedStatusIfKnown?.icon ?: LockWidgetIcon.UNKNOWN
+        }
+        val tint = context.getColor(
+            when (icon) {
+                LockWidgetIcon.LOCKED -> R.color.lock_widget_locked
+                LockWidgetIcon.UNLOCKED -> R.color.lock_widget_unlocked
+                LockWidgetIcon.MOVING, LockWidgetIcon.UNKNOWN -> R.color.lock_widget_on_background
+            },
+        )
+        preview.setTextViewText(R.id.lock_widget_preview_name, content.name)
+        preview.setTextViewText(
+            R.id.lock_widget_preview_status,
+            content.inProgressLabel ?: content.observedStatusIfKnown?.label ?: "状態不明",
+        )
+        preview.setTextColor(R.id.lock_widget_preview_status, tint)
+        preview.setImageViewResource(R.id.lock_widget_preview_icon, icon.drawableRes)
+        preview.setInt(R.id.lock_widget_preview_icon, "setColorFilter", tint)
+        return preview
     }
 
     private suspend fun update(glanceId: GlanceId, contents: Map<String, LockWidgetContent>) {

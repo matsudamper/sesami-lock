@@ -92,14 +92,7 @@ private fun LockContent(name: String, statusLabel: String, detail: String, icon:
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Image(
-            provider = ImageProvider(
-                when (icon) {
-                    LockWidgetIcon.LOCKED -> R.drawable.lock_widget_ic_lock
-                    LockWidgetIcon.UNLOCKED -> R.drawable.lock_widget_ic_lock_open_right
-                    LockWidgetIcon.MOVING -> R.drawable.lock_widget_ic_sync
-                    LockWidgetIcon.UNKNOWN -> R.drawable.lock_widget_ic_question_mark
-                },
-            ),
+            provider = ImageProvider(icon.drawableRes),
             contentDescription = null,
             colorFilter = ColorFilter.tint(tint),
             modifier = GlanceModifier.size(32.dp),
