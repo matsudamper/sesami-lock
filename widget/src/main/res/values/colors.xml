@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="lock_widget_locked">#FFB45309</color>
+    <color name="lock_widget_unlocked">#FF2E7D32</color>
+</resources>

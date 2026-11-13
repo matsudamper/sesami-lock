@@ -64,5 +64,5 @@ dependencies {
     implementation(libs.cameraCamera2)
     implementation(libs.cameraLifecycle)
     implementation(libs.cameraView)
-    implementation(libs.glanceAppwidget)
+    implementation(project(":widget"))
 }

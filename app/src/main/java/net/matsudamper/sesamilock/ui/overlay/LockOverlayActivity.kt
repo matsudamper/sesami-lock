@@ -1,4 +1,4 @@
-package net.matsudamper.sesamilock.widget
+package net.matsudamper.sesamilock.ui.overlay
 
 import android.content.Context
 import android.content.Intent
@@ -11,8 +11,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import net.matsudamper.sesamilock.BlePermissions
 import net.matsudamper.sesamilock.SesameLockApplication
+import net.matsudamper.sesamilock.sesame.core.model.LockId
+import net.matsudamper.sesamilock.sesame.core.model.LockRoute
 import net.matsudamper.sesamilock.ui.home.HomeViewModel
-import net.matsudamper.sesamilock.ui.overlay.LockOverlayScreen
 import net.matsudamper.sesamilock.ui.theme.SesameTheme
 
 internal class LockOverlayActivity : ComponentActivity() {
@@ -36,7 +37,7 @@ internal class LockOverlayActivity : ComponentActivity() {
                         registrySync = graph.registrySync,
                         blePermissions = blePermissions,
                         editLockSelection = graph.editLockSelection,
-                        widgetPinner = graph.widgetPinner,
+                        widgetController = graph.widgetController,
                         focusedLockId = lockId,
                     )
                 }
@@ -53,5 +54,10 @@ internal class LockOverlayActivity : ComponentActivity() {
             .setData(Uri.fromParts("sesamilock", lockIdValue, null))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             .putExtra(EXTRA_LOCK_ID, lockIdValue)
+
+        private fun parseLockId(value: String): LockId? {
+            val route = LockRoute.entries.firstOrNull { it.name == value.substringBefore(':') } ?: return null
+            return LockId.of(value.substringAfter(':'), route)
+        }
     }
 }

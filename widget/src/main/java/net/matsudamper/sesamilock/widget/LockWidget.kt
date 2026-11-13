@@ -1,7 +1,6 @@
 package net.matsudamper.sesamilock.widget
 
 import android.content.Context
-import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -20,7 +19,6 @@ import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
-import androidx.glance.color.ColorProvider
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
@@ -36,10 +34,6 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import net.matsudamper.sesamilock.MainActivity
-import net.matsudamper.sesamilock.R
-import net.matsudamper.sesamilock.ui.theme.darkStatusColors
-import net.matsudamper.sesamilock.ui.theme.lightStatusColors
 
 internal class LockWidget : GlanceAppWidget() {
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
@@ -47,11 +41,12 @@ internal class LockWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
             val preferences = currentState<Preferences>()
-            val lockIdValue = preferences[LockWidgetKeys.lockId]
+            val lockKey = preferences[LockWidgetKeys.lockKey]
+            val host = context.applicationContext as LockWidgetHost
             val inProgressLabel = preferences[LockWidgetKeys.inProgressLabel]
             GlanceTheme {
-                if (lockIdValue == null) {
-                    UnconfiguredContent(onClick = actionStartActivity(Intent(context, MainActivity::class.java)))
+                if (lockKey == null) {
+                    UnconfiguredContent(onClick = actionStartActivity(host.createAppLaunchIntent()))
                 } else {
                     LockContent(
                         name = preferences[LockWidgetKeys.name].orEmpty(),
@@ -64,7 +59,7 @@ internal class LockWidget : GlanceAppWidget() {
                                 ?.let { stored -> LockWidgetIcon.entries.firstOrNull { it.name == stored } }
                                 ?: LockWidgetIcon.UNKNOWN
                         },
-                        onClick = actionStartActivity(LockOverlayActivity.createIntent(context, lockIdValue)),
+                        onClick = actionStartActivity(host.createLockOverlayIntent(lockKey)),
                     )
                 }
             }
@@ -99,10 +94,10 @@ private fun LockContent(name: String, statusLabel: String, detail: String, icon:
         Image(
             provider = ImageProvider(
                 when (icon) {
-                    LockWidgetIcon.LOCKED -> R.drawable.ic_lock
-                    LockWidgetIcon.UNLOCKED -> R.drawable.ic_lock_open_right
-                    LockWidgetIcon.MOVING -> R.drawable.ic_sync
-                    LockWidgetIcon.UNKNOWN -> R.drawable.ic_question_mark
+                    LockWidgetIcon.LOCKED -> R.drawable.lock_widget_ic_lock
+                    LockWidgetIcon.UNLOCKED -> R.drawable.lock_widget_ic_lock_open_right
+                    LockWidgetIcon.MOVING -> R.drawable.lock_widget_ic_sync
+                    LockWidgetIcon.UNKNOWN -> R.drawable.lock_widget_ic_question_mark
                 },
             ),
             contentDescription = null,
@@ -139,7 +134,7 @@ private fun widgetContainerModifier(): GlanceModifier = GlanceModifier
 
 @Composable
 private fun LockWidgetIcon.tint(): ColorProvider = when (this) {
-    LockWidgetIcon.LOCKED -> ColorProvider(day = lightStatusColors.locked, night = darkStatusColors.locked)
-    LockWidgetIcon.UNLOCKED -> ColorProvider(day = lightStatusColors.unlocked, night = darkStatusColors.unlocked)
+    LockWidgetIcon.LOCKED -> ColorProvider(R.color.lock_widget_locked)
+    LockWidgetIcon.UNLOCKED -> ColorProvider(R.color.lock_widget_unlocked)
     LockWidgetIcon.MOVING, LockWidgetIcon.UNKNOWN -> GlanceTheme.colors.onSurfaceVariant
 }

@@ -59,7 +59,7 @@ internal fun AppRoot(
                     registrySync = graph.registrySync,
                     blePermissions = blePermissions,
                     editLockSelection = graph.editLockSelection,
-                    widgetPinner = graph.widgetPinner,
+                    widgetController = graph.widgetController,
                     focusedLockId = null,
                 )
             }

@@ -47,7 +47,7 @@ import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.sesame.credential.LockRepositoryState
 import net.matsudamper.sesamilock.ui.edit.EditLockSelection
-import net.matsudamper.sesamilock.widget.LockWidgetPinner
+import net.matsudamper.sesamilock.widget.LockWidgetController
 
 internal class HomeViewModel(
     private val repository: EncryptedLockRepository,
@@ -57,7 +57,7 @@ internal class HomeViewModel(
     private val registrySync: LockRegistrySync,
     private val blePermissions: BlePermissions,
     private val editLockSelection: EditLockSelection,
-    private val widgetPinner: LockWidgetPinner,
+    private val widgetController: LockWidgetController,
     private val focusedLockId: LockId?,
 ) : ViewModel() {
     private val viewState = MutableStateFlow(
@@ -273,7 +273,7 @@ internal class HomeViewModel(
                 -> HomeUiState.Tone.NEUTRAL
             },
             progressVisible = inProgress != null,
-            widgetMenuVisible = widgetPinner.supported,
+            widgetMenuVisible = widgetController.pinSupported,
             warningMessage = when {
                 registrationRejected -> "この鍵を読み込めませんでした。登録し直してください"
                 observation?.batteryCritical == true -> "電池残量が少なくなっています"
@@ -347,7 +347,7 @@ internal class HomeViewModel(
         }
 
         override fun onAddWidgetClick() {
-            widgetPinner.requestPin(lock.id)
+            widgetController.requestPin(lock.id.value)
         }
     }
 

@@ -17,13 +17,11 @@ import net.matsudamper.sesamilock.sesame.core.coordinator.LockSafetyConfig
 import net.matsudamper.sesamilock.sesame.core.coordinator.RequestIdFactory
 import net.matsudamper.sesamilock.sesame.core.diagnostics.DiagnosticsRecorder
 import net.matsudamper.sesamilock.sesame.core.model.LockClock
-import net.matsudamper.sesamilock.sesame.core.model.LockId
 import net.matsudamper.sesamilock.sesame.core.model.LockRoute
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.ui.edit.EditLockSelection
-import net.matsudamper.sesamilock.widget.LockWidgetPinner
-import net.matsudamper.sesamilock.widget.LockWidgetUpdater
+import net.matsudamper.sesamilock.widget.LockWidgetController
 
 internal class AppGraph(application: Application) {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -57,16 +55,14 @@ internal class AppGraph(application: Application) {
     val qrImageDecoder = QrImageDecoder(application.contentResolver)
     val editLockSelection = EditLockSelection()
     val nfcOpenAppTagWriter = NfcOpenAppTagWriter(application)
-    val widgetPinner = LockWidgetPinner(application)
-    private val widgetUpdater = LockWidgetUpdater(application, repository, transports, coordinator)
+    val widgetController = LockWidgetController(application, applicationScope)
+    private val widgetSync = LockWidgetSync(widgetController, repository, transports, coordinator)
 
     fun start() {
         registrySync.start(applicationScope)
-        widgetUpdater.start(applicationScope)
+        widgetSync.start(applicationScope)
         applicationScope.launch { repository.load() }
     }
-
-    fun assignWidget(appWidgetId: Int, lockId: LockId): Job = applicationScope.launch { widgetUpdater.assign(appWidgetId, lockId) }
 
     private fun onVisibilityChanged(visible: Boolean) {
         synchronized(this) {

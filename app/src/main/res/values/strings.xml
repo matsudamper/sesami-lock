@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Sesami Lock</string>
-    <string name="lock_widget_description">鍵の状態を表示し、タップで施錠・解錠の画面を開きます</string>
 </resources>
