@@ -13,14 +13,14 @@ internal data class LockStatusColors(
     val unlockedContainer: Color,
 )
 
-private val lightStatusColors = LockStatusColors(
+internal val lightStatusColors = LockStatusColors(
     locked = Color(0xFFB45309),
     lockedContainer = Color(0xFFFCE7CF),
     unlocked = Color(0xFF2E7D32),
     unlockedContainer = Color(0xFFDCEFD9),
 )
 
-private val darkStatusColors = LockStatusColors(
+internal val darkStatusColors = LockStatusColors(
     locked = Color(0xFFF5B66B),
     lockedContainer = Color(0xFF4A2E0F),
     unlocked = Color(0xFF8BD18F),

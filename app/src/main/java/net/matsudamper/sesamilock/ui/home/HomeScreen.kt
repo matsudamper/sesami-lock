@@ -86,15 +86,7 @@ internal fun HomeScreen(
         onPauseOrDispose { }
     }
     val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(uiState.snackbar) {
-        val snackbar = uiState.snackbar ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(
-            message = snackbar.message,
-            withDismissAction = snackbar.requiresAcknowledgement,
-            duration = if (snackbar.requiresAcknowledgement) SnackbarDuration.Indefinite else SnackbarDuration.Short,
-        )
-        snackbar.listener.onDismissed()
-    }
+    LockSnackbarEffect(snackbar = uiState.snackbar, snackbarHostState = snackbarHostState)
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -142,6 +134,20 @@ internal fun HomeScreen(
 
     uiState.deleteConfirmation?.let { DeleteConfirmationDialog(it) }
     uiState.exportQr?.let { ExportQrDialog(it) }
+}
+
+@Composable
+internal fun LockSnackbarEffect(snackbar: HomeUiState.Snackbar?, snackbarHostState: SnackbarHostState) {
+    LaunchedEffect(snackbar) {
+        if (snackbar != null) {
+            snackbarHostState.showSnackbar(
+                message = snackbar.message,
+                withDismissAction = snackbar.requiresAcknowledgement,
+                duration = if (snackbar.requiresAcknowledgement) SnackbarDuration.Indefinite else SnackbarDuration.Short,
+            )
+            snackbar.listener.onDismissed()
+        }
+    }
 }
 
 @Composable
@@ -195,6 +201,7 @@ private fun LocksList(content: HomeUiState.Content.Locks, permissionBanner: Home
                 card = card,
                 headerModifier = reorderState.dragModifier(index),
                 lifted = reorderState.isDragging(index),
+                menuVisible = true,
                 modifier = reorderState.itemModifier(index),
             )
         }
@@ -228,7 +235,7 @@ private fun OverflowMenu(onDiagnosticsClick: () -> Unit, onSettingsClick: () -> 
 }
 
 @Composable
-private fun PermissionBanner(banner: HomeUiState.PermissionBanner, modifier: Modifier = Modifier) {
+internal fun PermissionBanner(banner: HomeUiState.PermissionBanner, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         banner.listener.onPermissionResult()
@@ -329,7 +336,13 @@ private fun UnrecoverableContent(content: HomeUiState.Content.Unrecoverable, mod
 }
 
 @Composable
-private fun LockCard(card: HomeUiState.LockCard, lifted: Boolean, modifier: Modifier = Modifier, headerModifier: Modifier = Modifier) {
+internal fun LockCard(
+    card: HomeUiState.LockCard,
+    lifted: Boolean,
+    menuVisible: Boolean,
+    modifier: Modifier = Modifier,
+    headerModifier: Modifier = Modifier,
+) {
     val statusColors = lockStatusColors()
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -351,11 +364,15 @@ private fun LockCard(card: HomeUiState.LockCard, lifted: Boolean, modifier: Modi
                     )
                     Text(card.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                LockCardMenu(
-                    onExportClick = { card.listener.onExportClick() },
-                    onEditClick = { card.listener.onEditClick() },
-                    onDeleteClick = { card.listener.onDeleteClick() },
-                )
+                if (menuVisible) {
+                    LockCardMenu(
+                        widgetMenuVisible = card.widgetMenuVisible,
+                        onExportClick = { card.listener.onExportClick() },
+                        onEditClick = { card.listener.onEditClick() },
+                        onAddWidgetClick = { card.listener.onAddWidgetClick() },
+                        onDeleteClick = { card.listener.onDeleteClick() },
+                    )
+                }
             }
             card.warningMessage?.let { message ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -472,7 +489,14 @@ private fun StatusBadge(icon: HomeUiState.StatusIcon, tone: HomeUiState.Tone, pr
 }
 
 @Composable
-private fun LockCardMenu(onExportClick: () -> Unit, onEditClick: () -> Unit, onDeleteClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun LockCardMenu(
+    widgetMenuVisible: Boolean,
+    onExportClick: () -> Unit,
+    onEditClick: () -> Unit,
+    onAddWidgetClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         IconButton(onClick = { expanded = true }) {
@@ -493,6 +517,15 @@ private fun LockCardMenu(onExportClick: () -> Unit, onEditClick: () -> Unit, onD
                     onEditClick()
                 },
             )
+            if (widgetMenuVisible) {
+                DropdownMenuItem(
+                    text = { Text("ウィジェットを追加") },
+                    onClick = {
+                        expanded = false
+                        onAddWidgetClick()
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = { Text("削除") },
                 onClick = {

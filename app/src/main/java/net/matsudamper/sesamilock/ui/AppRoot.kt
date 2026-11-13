@@ -59,6 +59,8 @@ internal fun AppRoot(
                     registrySync = graph.registrySync,
                     blePermissions = blePermissions,
                     editLockSelection = graph.editLockSelection,
+                    widgetPinner = graph.widgetPinner,
+                    focusedLockId = null,
                 )
             }
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
