@@ -21,6 +21,7 @@ import net.matsudamper.sesamilock.sesame.core.model.LockRoute
 import net.matsudamper.sesamilock.sesame.core.transport.LockTransport
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.ui.edit.EditLockSelection
+import net.matsudamper.sesamilock.widget.LockWidgetController
 
 internal class AppGraph(application: Application) {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -54,9 +55,12 @@ internal class AppGraph(application: Application) {
     val qrImageDecoder = QrImageDecoder(application.contentResolver)
     val editLockSelection = EditLockSelection()
     val nfcOpenAppTagWriter = NfcOpenAppTagWriter(application)
+    val widgetController = LockWidgetController(application, applicationScope)
+    private val widgetSync = LockWidgetSync(widgetController, repository, transports, coordinator)
 
     fun start() {
         registrySync.start(applicationScope)
+        widgetSync.start(applicationScope)
         applicationScope.launch { repository.load() }
     }
 

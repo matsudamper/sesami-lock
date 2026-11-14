@@ -47,6 +47,7 @@ import net.matsudamper.sesamilock.sesame.core.transport.TransportError
 import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.sesame.credential.LockRepositoryState
 import net.matsudamper.sesamilock.ui.edit.EditLockSelection
+import net.matsudamper.sesamilock.widget.LockWidgetController
 
 internal class HomeViewModel(
     private val repository: EncryptedLockRepository,
@@ -56,6 +57,8 @@ internal class HomeViewModel(
     private val registrySync: LockRegistrySync,
     private val blePermissions: BlePermissions,
     private val editLockSelection: EditLockSelection,
+    private val widgetController: LockWidgetController,
+    private val focusedLockId: LockId?,
 ) : ViewModel() {
     private val viewState = MutableStateFlow(
         ViewState(
@@ -87,16 +90,19 @@ internal class HomeViewModel(
 
             LockRepositoryState.Unrecoverable -> flowOf(LocksModel.Unrecoverable)
 
-            is LockRepositoryState.Loaded -> if (state.locks.isEmpty()) {
-                flowOf(LocksModel.Loaded(listOf()))
-            } else {
-                combine(
-                    state.locks.map { lock ->
-                        combine(transport(lock).snapshot(lock.id), coordinator.phase(lock.id)) { snapshot, phase ->
-                            LockModel(lock, snapshot, phase)
-                        }
-                    },
-                ) { models -> LocksModel.Loaded(models.toList()) }
+            is LockRepositoryState.Loaded -> {
+                val locks = state.locks.filter(::isTarget)
+                if (locks.isEmpty()) {
+                    flowOf(LocksModel.Loaded(listOf()))
+                } else {
+                    combine(
+                        locks.map { lock ->
+                            combine(transport(lock).snapshot(lock.id), coordinator.phase(lock.id)) { snapshot, phase ->
+                                LockModel(lock, snapshot, phase)
+                            }
+                        },
+                    ) { models -> LocksModel.Loaded(models.toList()) }
+                }
             }
         }
     }
@@ -154,7 +160,8 @@ internal class HomeViewModel(
     init {
         viewModelScope.launch {
             var refreshedLockIds = setOf<LockId>()
-            registrySync.registeredLocks.collect { locks ->
+            registrySync.registeredLocks.collect { allLocks ->
+                val locks = allLocks.filter(::isTarget)
                 locks.filter { it.id !in refreshedLockIds }.forEach(::refresh)
                 refreshedLockIds = locks.map { it.id }.toSet()
             }
@@ -266,6 +273,7 @@ internal class HomeViewModel(
                 -> HomeUiState.Tone.NEUTRAL
             },
             progressVisible = inProgress != null,
+            widgetMenuVisible = widgetController.pinSupported,
             warningMessage = when {
                 registrationRejected -> "この鍵を読み込めませんでした。登録し直してください"
                 observation?.batteryCritical == true -> "電池残量が少なくなっています"
@@ -337,6 +345,10 @@ internal class HomeViewModel(
         override fun onDeleteClick() {
             viewState.update { it.copy(pendingDeleteLockId = lock.id) }
         }
+
+        override fun onAddWidgetClick() {
+            widgetController.requestPin(lock.id.value)
+        }
     }
 
     private fun createSnackbar(model: LockModel, view: ViewState): HomeUiState.Snackbar? {
@@ -397,7 +409,9 @@ internal class HomeViewModel(
         },
     )
 
-    private fun refreshAll(): List<Job> = registrySync.registeredLocks.value.map(::refresh)
+    private fun refreshAll(): List<Job> = registrySync.registeredLocks.value.filter(::isTarget).map(::refresh)
+
+    private fun isTarget(lock: RegisteredLock): Boolean = focusedLockId == null || lock.id == focusedLockId
 
     private fun refresh(lock: RegisteredLock): Job {
         val running = refreshJobs[lock.id]
