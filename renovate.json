@@ -6,7 +6,11 @@
   "packageRules": [
     {
       "matchPackageNames": [
-        "org.jetbrains.kotlin.plugin.compose"
+        "/^org\\.jetbrains\\.kotlin/",
+        "/^com\\.pinterest\\.ktlint(?::|$)/",
+        "/^org\\.jlleitschuh\\.gradle\\.ktlint(?::|$)/",
+        "/^dev\\.detekt(?::|$)/",
+        "/^io\\.nlopez\\.compose\\.rules(?::|$)/"
       ],
       "automerge": true
     },
