@@ -59,7 +59,7 @@ bash .claude/setup.sh
 ## 鍵の登録
 
 - BLE: 公式アプリの「鍵をシェア」で従来形式（無期限）の QR を発行し、その URL（`ssm://UI?t=sk&...`）を貼り付ける。エクスポート済みの鍵 JSON も読み込める。暗号化トークン形式の QR とサーバー署名が必要なゲスト鍵は非対応
-- クラウド: SESAME Biz 開発者ページの API キー、SESAME の UUID と秘密鍵を入力する（Hub 3 が必要）
+- クラウド: [SESAME Biz 開発者ページ](https://biz.candyhouse.co/biz/developer)の API キー、SESAME の UUID と秘密鍵を入力する（Hub 3 が必要）
 
 対応機種: SESAME 3 / 4 / 5 / 5 Pro / 5 US / 6 / 6 Pro / 6 Pro SlidingDoor / miwa。Bot / Bike / Touch / Hub は操作対象にしない。
 

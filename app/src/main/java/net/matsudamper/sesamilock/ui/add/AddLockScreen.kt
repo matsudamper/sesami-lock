@@ -37,10 +37,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import net.matsudamper.sesamilock.R
 import net.matsudamper.sesamilock.ui.component.QrImageSourceButtons
 import net.matsudamper.sesamilock.ui.component.SecretTextField
+
+private const val DeveloperPageUrl = "https://biz.candyhouse.co/biz/developer"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,7 +151,18 @@ private fun BleInputContent(input: AddLockUiState.BleInput, listener: AddLockUiS
 private fun CloudInputContent(input: AddLockUiState.CloudInput, listener: AddLockUiState.Listener, modifier: Modifier = Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            "Hub 3 経由で操作します。SESAME Biz の開発者ページで発行した API キーと、SESAME の UUID・秘密鍵を入力してください。",
+            text = buildAnnotatedString {
+                append("Hub 3 経由で操作します。")
+                withLink(
+                    LinkAnnotation.Url(
+                        url = DeveloperPageUrl,
+                        styles = TextLinkStyles(style = SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline)),
+                    ),
+                ) {
+                    append("SESAME Biz の開発者ページ")
+                }
+                append("で発行した API キーと、SESAME の UUID・秘密鍵を入力してください。")
+            },
             style = MaterialTheme.typography.bodyMedium,
         )
         ModelSelector(input = input)
