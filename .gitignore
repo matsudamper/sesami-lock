@@ -18,3 +18,4 @@ captures/
 .externalNativeBuild/
 .cxx/
 **/.claude/settings.local.json
+**/src/test/snapshots/images/
