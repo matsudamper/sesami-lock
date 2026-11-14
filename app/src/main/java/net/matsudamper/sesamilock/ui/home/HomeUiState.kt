@@ -33,6 +33,7 @@ internal data class HomeUiState(
         val statusIcon: StatusIcon,
         val statusTone: Tone,
         val progressVisible: Boolean,
+        val widgetMenuVisible: Boolean,
         val warningMessage: String?,
         val lockButton: ActionButton,
         val unlockButton: ActionButton,
@@ -119,6 +120,8 @@ internal data class HomeUiState(
         fun onEditClick()
 
         fun onDeleteClick()
+
+        fun onAddWidgetClick()
     }
 
     interface SnackbarListener {

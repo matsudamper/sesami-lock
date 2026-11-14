@@ -5,6 +5,7 @@ CANDY HOUSE SESAME スマートロックを、意図しない解錠を防ぐ設�
 
 ## 構成
 - `/app` — Android アプリ（Compose UI、ViewModel、依存の組み立て）
+- `/widget` — Glance のホーム画面ウィジェット（表示・状態の保存・ピン留め）。表示内容の組み立てとオーバーレイ画面は `/app` 側
 - `/sesame/core` — 経路に依存しないドメインと安全制御（`LockCommandCoordinator`、状態モデル、鍵取り込み、診断）。Kotlin/JVM
 - `/sesame/ble` — 公式 SDK を使った BLE 経路の `LockTransport` 実装
 - `/sesame/cloud` — Web API を使ったクラウド経路の `LockTransport` 実装（AES-CMAC 署名）
