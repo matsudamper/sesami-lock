@@ -22,34 +22,21 @@ internal class LockWidgetConfigureViewModel(
     private val widgetController: LockWidgetController,
     private val appWidgetId: Int,
 ) : ViewModel() {
-    private val assignment = MutableStateFlow(Assignment.NOT_STARTED)
-    private val storedSettingIfLoaded = MutableStateFlow<LockWidgetSetting?>(null)
-    private val styleIfSelected = MutableStateFlow<LockWidgetStyle?>(null)
+    private val settingIfLoaded = MutableStateFlow<LockWidgetSetting?>(null)
 
-    val uiState: StateFlow<LockWidgetConfigureUiState> = combine(
-        repository.state,
-        assignment,
-        storedSettingIfLoaded,
-        styleIfSelected,
-        ::buildUiState,
-    ).stateIn(
+    val uiState: StateFlow<LockWidgetConfigureUiState> = combine(repository.state, settingIfLoaded, ::buildUiState).stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = buildUiState(repository.state.value, assignment.value, storedSettingIfLoaded.value, styleIfSelected.value),
+        initialValue = buildUiState(repository.state.value, settingIfLoaded.value),
     )
 
     init {
         viewModelScope.launch {
-            storedSettingIfLoaded.value = widgetController.currentSetting(appWidgetId)
+            settingIfLoaded.value = widgetController.currentSetting(appWidgetId)
         }
     }
 
-    private fun buildUiState(
-        state: LockRepositoryState,
-        assignment: Assignment,
-        storedSettingIfLoaded: LockWidgetSetting?,
-        styleIfSelected: LockWidgetStyle?,
-    ): LockWidgetConfigureUiState = LockWidgetConfigureUiState(
+    private fun buildUiState(state: LockRepositoryState, settingIfLoaded: LockWidgetSetting?): LockWidgetConfigureUiState = LockWidgetConfigureUiState(
         content = when (state) {
             LockRepositoryState.Loading -> LockWidgetConfigureUiState.Content.Loading
 
@@ -57,58 +44,50 @@ internal class LockWidgetConfigureViewModel(
 
             is LockRepositoryState.Loaded -> if (state.locks.isEmpty()) {
                 LockWidgetConfigureUiState.Content.Empty
-            } else if (storedSettingIfLoaded == null) {
+            } else if (settingIfLoaded == null) {
                 LockWidgetConfigureUiState.Content.Loading
             } else {
-                val style = styleIfSelected ?: storedSettingIfLoaded.style
-                val selectable = assignment == Assignment.NOT_STARTED
                 LockWidgetConfigureUiState.Content.Locks(
-                    styleOptions = LockWidgetStyle.entries.map { option ->
+                    styleOptions = LockWidgetStyle.entries.map { style ->
                         LockWidgetConfigureUiState.StyleOption(
-                            label = when (option) {
+                            label = when (style) {
                                 LockWidgetStyle.WHITE_TRANSLUCENT -> "白（半透明）"
                                 LockWidgetStyle.BLACK_TRANSLUCENT -> "黒（半透明）"
                                 LockWidgetStyle.TRANSPARENT -> "透明"
                             },
-                            selected = option == style,
-                            enabled = selectable,
-                            listener = styleListener(option),
+                            preview = when (style) {
+                                LockWidgetStyle.WHITE_TRANSLUCENT -> LockWidgetConfigureUiState.StylePreview.WHITE_TRANSLUCENT
+                                LockWidgetStyle.BLACK_TRANSLUCENT -> LockWidgetConfigureUiState.StylePreview.BLACK_TRANSLUCENT
+                                LockWidgetStyle.TRANSPARENT -> LockWidgetConfigureUiState.StylePreview.TRANSPARENT
+                            },
+                            selected = style == settingIfLoaded.style,
+                            listener = styleListener(style),
                         )
                     },
                     items = state.locks.map { lock ->
                         LockWidgetConfigureUiState.LockItem(
                             name = lock.displayName,
                             routeLabel = LockTexts.route(lock.route),
-                            assignedLabelVisible = lock.id.value == storedSettingIfLoaded.lockKeyIfAssigned,
-                            enabled = selectable,
-                            listener = itemListener(lock, style),
+                            selected = lock.id.value == settingIfLoaded.lockKeyIfAssigned,
+                            listener = itemListener(lock),
                         )
                     },
                 )
             }
         },
-        completed = assignment == Assignment.COMPLETED,
     )
 
     private fun styleListener(style: LockWidgetStyle) = object : LockWidgetConfigureUiState.StyleOption.Listener {
         override fun onClick() {
-            styleIfSelected.value = style
+            settingIfLoaded.update { it?.copy(style = style) }
+            widgetController.applyStyle(appWidgetId, style)
         }
     }
 
-    private fun itemListener(lock: RegisteredLock, style: LockWidgetStyle) = object : LockWidgetConfigureUiState.LockItem.Listener {
+    private fun itemListener(lock: RegisteredLock) = object : LockWidgetConfigureUiState.LockItem.Listener {
         override fun onClick() {
-            if (!assignment.compareAndSet(Assignment.NOT_STARTED, Assignment.IN_PROGRESS)) return
-            viewModelScope.launch {
-                widgetController.assign(appWidgetId, lock.id.value, style).join()
-                assignment.update { Assignment.COMPLETED }
-            }
+            settingIfLoaded.update { it?.copy(lockKeyIfAssigned = lock.id.value) }
+            widgetController.assign(appWidgetId, lock.id.value)
         }
-    }
-
-    private enum class Assignment {
-        NOT_STARTED,
-        IN_PROGRESS,
-        COMPLETED,
     }
 }

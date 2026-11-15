@@ -63,10 +63,21 @@ public class LockWidgetController(
         )
     }
 
-    public fun assign(appWidgetId: Int, lockKey: String, style: LockWidgetStyle): Job = scope.launch {
+    public fun applyStyle(appWidgetId: Int, style: LockWidgetStyle): Job = scope.launch {
         val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
         writeMutex.withLock {
             updateAppWidgetState(context, glanceId) { preferences ->
+                preferences[LockWidgetKeys.style] = style.name
+            }
+            LockWidget().update(context, glanceId)
+        }
+    }
+
+    public fun assign(appWidgetId: Int, lockKey: String): Job = scope.launch {
+        val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
+        writeMutex.withLock {
+            updateAppWidgetState(context, glanceId) { preferences ->
+                val style = preferences.lockWidgetStyle()
                 preferences.clear()
                 preferences[LockWidgetKeys.lockKey] = lockKey
                 preferences[LockWidgetKeys.style] = style.name
@@ -84,7 +95,7 @@ public class LockWidgetController(
         } else {
             content.observedStatusIfKnown?.icon ?: LockWidgetIcon.UNKNOWN
         }
-        val tint = context.getColor(PinnedWidgetStyle.tintColorRes(icon))
+        val tint = context.getColor(PinPreviewStyle.tintColorRes(icon))
         preview.setTextViewText(R.id.lock_widget_preview_name, content.name)
         preview.setTextViewText(
             R.id.lock_widget_preview_status,
@@ -126,7 +137,7 @@ public class LockWidgetController(
     }
 }
 
-private val PinnedWidgetStyle = LockWidgetStyle.WHITE_TRANSLUCENT
+private val PinPreviewStyle = LockWidgetStyle.WHITE_TRANSLUCENT
 
 internal class LockWidgetPinnedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -135,7 +146,7 @@ internal class LockWidgetPinnedReceiver : BroadcastReceiver() {
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID || lockKey == null) return
         val host = context.applicationContext as LockWidgetHost
         val pendingResult = goAsync()
-        host.lockWidgetController.assign(appWidgetId, lockKey, PinnedWidgetStyle).invokeOnCompletion { pendingResult.finish() }
+        host.lockWidgetController.assign(appWidgetId, lockKey).invokeOnCompletion { pendingResult.finish() }
     }
 
     companion object {

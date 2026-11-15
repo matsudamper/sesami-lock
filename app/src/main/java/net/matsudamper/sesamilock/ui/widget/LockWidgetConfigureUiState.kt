@@ -5,7 +5,6 @@ import androidx.compose.runtime.Immutable
 @Immutable
 internal data class LockWidgetConfigureUiState(
     val content: Content,
-    val completed: Boolean,
 ) {
     @Immutable
     sealed interface Content {
@@ -22,8 +21,8 @@ internal data class LockWidgetConfigureUiState(
     @Immutable
     data class StyleOption(
         val label: String,
+        val preview: StylePreview,
         val selected: Boolean,
-        val enabled: Boolean,
         val listener: Listener,
     ) {
         interface Listener {
@@ -31,12 +30,17 @@ internal data class LockWidgetConfigureUiState(
         }
     }
 
+    enum class StylePreview {
+        WHITE_TRANSLUCENT,
+        BLACK_TRANSLUCENT,
+        TRANSPARENT,
+    }
+
     @Immutable
     data class LockItem(
         val name: String,
         val routeLabel: String,
-        val assignedLabelVisible: Boolean,
-        val enabled: Boolean,
+        val selected: Boolean,
         val listener: Listener,
     ) {
         interface Listener {
