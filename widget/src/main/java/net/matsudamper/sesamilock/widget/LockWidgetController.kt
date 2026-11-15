@@ -11,7 +11,9 @@ import android.widget.RemoteViews
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.state.PreferencesGlanceStateDefinition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -52,12 +54,22 @@ public class LockWidgetController(
 
     public fun isLockWidget(appWidgetId: Int): Boolean = AppWidgetManager.getInstance(context).getAppWidgetInfo(appWidgetId)?.provider == ComponentName(context, LockWidgetReceiver::class.java)
 
-    public fun assign(appWidgetId: Int, lockKey: String): Job = scope.launch {
+    public suspend fun currentSetting(appWidgetId: Int): LockWidgetSetting {
+        val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
+        val preferences = getAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId)
+        return LockWidgetSetting(
+            lockKeyIfAssigned = preferences[LockWidgetKeys.lockKey],
+            style = preferences.lockWidgetStyle(),
+        )
+    }
+
+    public fun assign(appWidgetId: Int, lockKey: String, style: LockWidgetStyle): Job = scope.launch {
         val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
         writeMutex.withLock {
             updateAppWidgetState(context, glanceId) { preferences ->
                 preferences.clear()
                 preferences[LockWidgetKeys.lockKey] = lockKey
+                preferences[LockWidgetKeys.style] = style.name
                 latestContents?.get(lockKey)?.let { preferences.write(it) }
             }
             LockWidget().update(context, glanceId)
@@ -72,13 +84,7 @@ public class LockWidgetController(
         } else {
             content.observedStatusIfKnown?.icon ?: LockWidgetIcon.UNKNOWN
         }
-        val tint = context.getColor(
-            when (icon) {
-                LockWidgetIcon.LOCKED -> R.color.lock_widget_locked
-                LockWidgetIcon.UNLOCKED -> R.color.lock_widget_unlocked
-                LockWidgetIcon.MOVING, LockWidgetIcon.UNKNOWN -> R.color.lock_widget_on_background
-            },
-        )
+        val tint = context.getColor(PinnedWidgetStyle.tintColorRes(icon))
         preview.setTextViewText(R.id.lock_widget_preview_name, content.name)
         preview.setTextViewText(
             R.id.lock_widget_preview_status,
@@ -120,6 +126,8 @@ public class LockWidgetController(
     }
 }
 
+private val PinnedWidgetStyle = LockWidgetStyle.WHITE_TRANSLUCENT
+
 internal class LockWidgetPinnedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
@@ -127,7 +135,7 @@ internal class LockWidgetPinnedReceiver : BroadcastReceiver() {
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID || lockKey == null) return
         val host = context.applicationContext as LockWidgetHost
         val pendingResult = goAsync()
-        host.lockWidgetController.assign(appWidgetId, lockKey).invokeOnCompletion { pendingResult.finish() }
+        host.lockWidgetController.assign(appWidgetId, lockKey, PinnedWidgetStyle).invokeOnCompletion { pendingResult.finish() }
     }
 
     companion object {

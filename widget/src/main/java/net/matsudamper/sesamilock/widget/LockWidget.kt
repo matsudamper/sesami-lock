@@ -9,7 +9,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
-import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalSize
@@ -50,26 +49,30 @@ internal class LockWidget : GlanceAppWidget() {
             val host = context.applicationContext as LockWidgetHost
             val inProgressLabel = preferences[LockWidgetKeys.inProgressLabel]
             val compact = LocalSize.current.width < WideSize.width
-            GlanceTheme {
-                if (lockKey == null) {
-                    val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
-                    UnconfiguredContent(compact = compact, onClick = actionStartActivity(host.createLockSelectionIntent(appWidgetId)))
-                } else {
-                    LockContent(
-                        compact = compact,
-                        name = preferences[LockWidgetKeys.name].orEmpty(),
-                        statusLabel = inProgressLabel ?: preferences[LockWidgetKeys.statusLabel] ?: "状態不明",
-                        detail = preferences[LockWidgetKeys.detail].orEmpty(),
-                        icon = if (inProgressLabel != null) {
-                            LockWidgetIcon.MOVING
-                        } else {
-                            preferences[LockWidgetKeys.statusIcon]
-                                ?.let { stored -> LockWidgetIcon.entries.firstOrNull { it.name == stored } }
-                                ?: LockWidgetIcon.UNKNOWN
-                        },
-                        onClick = actionStartActivity(host.createLockOverlayIntent(lockKey)),
-                    )
-                }
+            val style = preferences.lockWidgetStyle()
+            if (lockKey == null) {
+                val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
+                UnconfiguredContent(
+                    compact = compact,
+                    style = style,
+                    onClick = actionStartActivity(host.createLockSelectionIntent(appWidgetId)),
+                )
+            } else {
+                LockContent(
+                    compact = compact,
+                    style = style,
+                    name = preferences[LockWidgetKeys.name].orEmpty(),
+                    statusLabel = inProgressLabel ?: preferences[LockWidgetKeys.statusLabel] ?: "状態不明",
+                    detail = preferences[LockWidgetKeys.detail].orEmpty(),
+                    icon = if (inProgressLabel != null) {
+                        LockWidgetIcon.MOVING
+                    } else {
+                        preferences[LockWidgetKeys.statusIcon]
+                            ?.let { stored -> LockWidgetIcon.entries.firstOrNull { it.name == stored } }
+                            ?: LockWidgetIcon.UNKNOWN
+                    },
+                    onClick = actionStartActivity(host.createLockOverlayIntent(lockKey)),
+                )
             }
         }
     }
@@ -80,33 +83,41 @@ internal class LockWidgetReceiver : GlanceAppWidgetReceiver() {
 }
 
 @Composable
-private fun UnconfiguredContent(compact: Boolean, onClick: Action) {
+private fun UnconfiguredContent(compact: Boolean, style: LockWidgetStyle, onClick: Action) {
     Column(
-        modifier = widgetContainerModifier(compact).clickable(onClick),
+        modifier = widgetContainerModifier(compact, style).clickable(onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = if (compact) "鍵を選択" else "タップして鍵を選択してください",
-            style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = if (compact) 11.sp else 13.sp),
+            style = TextStyle(color = ColorProvider(style.primaryTextColorRes), fontSize = if (compact) 11.sp else 13.sp),
         )
     }
 }
 
 @Composable
-private fun LockContent(compact: Boolean, name: String, statusLabel: String, detail: String, icon: LockWidgetIcon, onClick: Action) {
+private fun LockContent(
+    compact: Boolean,
+    style: LockWidgetStyle,
+    name: String,
+    statusLabel: String,
+    detail: String,
+    icon: LockWidgetIcon,
+    onClick: Action,
+) {
     if (compact) {
-        CompactLockContent(statusLabel = statusLabel, icon = icon, onClick = onClick)
+        CompactLockContent(style = style, statusLabel = statusLabel, icon = icon, onClick = onClick)
     } else {
-        WideLockContent(name = name, statusLabel = statusLabel, detail = detail, icon = icon, onClick = onClick)
+        WideLockContent(style = style, name = name, statusLabel = statusLabel, detail = detail, icon = icon, onClick = onClick)
     }
 }
 
 @Composable
-private fun CompactLockContent(statusLabel: String, icon: LockWidgetIcon, onClick: Action) {
-    val tint = icon.tint()
+private fun CompactLockContent(style: LockWidgetStyle, statusLabel: String, icon: LockWidgetIcon, onClick: Action) {
+    val tint = icon.tint(style)
     Column(
-        modifier = widgetContainerModifier(compact = true).clickable(onClick),
+        modifier = widgetContainerModifier(compact = true, style = style).clickable(onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -125,10 +136,10 @@ private fun CompactLockContent(statusLabel: String, icon: LockWidgetIcon, onClic
 }
 
 @Composable
-private fun WideLockContent(name: String, statusLabel: String, detail: String, icon: LockWidgetIcon, onClick: Action) {
-    val tint = icon.tint()
+private fun WideLockContent(style: LockWidgetStyle, name: String, statusLabel: String, detail: String, icon: LockWidgetIcon, onClick: Action) {
+    val tint = icon.tint(style)
     Row(
-        modifier = widgetContainerModifier(compact = false).clickable(onClick),
+        modifier = widgetContainerModifier(compact = false, style = style).clickable(onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Image(
@@ -142,7 +153,7 @@ private fun WideLockContent(name: String, statusLabel: String, detail: String, i
             Text(
                 text = name,
                 maxLines = 1,
-                style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 13.sp),
+                style = TextStyle(color = ColorProvider(style.primaryTextColorRes), fontSize = 13.sp),
             )
             Text(
                 text = statusLabel,
@@ -152,25 +163,19 @@ private fun WideLockContent(name: String, statusLabel: String, detail: String, i
             Text(
                 text = detail,
                 maxLines = 1,
-                style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp),
+                style = TextStyle(color = ColorProvider(style.secondaryTextColorRes), fontSize = 11.sp),
             )
         }
     }
 }
 
-@Composable
-private fun widgetContainerModifier(compact: Boolean): GlanceModifier = GlanceModifier
+private fun widgetContainerModifier(compact: Boolean, style: LockWidgetStyle): GlanceModifier = GlanceModifier
     .fillMaxSize()
-    .background(GlanceTheme.colors.widgetBackground)
+    .background(ImageProvider(style.backgroundDrawableRes))
     .cornerRadius(16.dp)
     .padding(horizontal = if (compact) 4.dp else 16.dp, vertical = if (compact) 4.dp else 8.dp)
 
 private val CompactSize = DpSize(40.dp, 40.dp)
 private val WideSize = DpSize(110.dp, 40.dp)
 
-@Composable
-private fun LockWidgetIcon.tint(): ColorProvider = when (this) {
-    LockWidgetIcon.LOCKED -> ColorProvider(R.color.lock_widget_locked)
-    LockWidgetIcon.UNLOCKED -> ColorProvider(R.color.lock_widget_unlocked)
-    LockWidgetIcon.MOVING, LockWidgetIcon.UNKNOWN -> GlanceTheme.colors.onSurfaceVariant
-}
+private fun LockWidgetIcon.tint(style: LockWidgetStyle): ColorProvider = ColorProvider(style.tintColorRes(this))

@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="lock_widget_locked">#FFB45309</color>
-    <color name="lock_widget_unlocked">#FF2E7D32</color>
-    <color name="lock_widget_background">#FFFFFFFF</color>
-    <color name="lock_widget_on_background">#FF1C1B1F</color>
+    <color name="lock_widget_white_background">#B3FFFFFF</color>
+    <color name="lock_widget_white_primary_text">#FF1C1B1F</color>
+    <color name="lock_widget_white_secondary_text">#FF49454F</color>
+    <color name="lock_widget_white_locked">#FFB45309</color>
+    <color name="lock_widget_white_unlocked">#FF2E7D32</color>
+    <color name="lock_widget_black_background">#B3000000</color>
+    <color name="lock_widget_black_primary_text">#FFE6E1E5</color>
+    <color name="lock_widget_black_secondary_text">#FFCAC4D0</color>
+    <color name="lock_widget_black_locked">#FFF5B66B</color>
+    <color name="lock_widget_black_unlocked">#FF8BD18F</color>
+    <color name="lock_widget_transparent_outline">#99FFFFFF</color>
 </resources>
