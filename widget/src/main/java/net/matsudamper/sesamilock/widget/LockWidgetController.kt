@@ -15,6 +15,7 @@ import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -63,7 +64,14 @@ public class LockWidgetController(
         )
     }
 
-    public fun applyStyle(appWidgetId: Int, style: LockWidgetStyle): Job = scope.launch {
+    public fun render(appWidgetId: Int): Job = launchInCallOrder {
+        val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
+        writeMutex.withLock {
+            LockWidget().update(context, glanceId)
+        }
+    }
+
+    public fun applyStyle(appWidgetId: Int, style: LockWidgetStyle): Job = launchInCallOrder {
         val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
         writeMutex.withLock {
             updateAppWidgetState(context, glanceId) { preferences ->
@@ -73,7 +81,7 @@ public class LockWidgetController(
         }
     }
 
-    public fun assign(appWidgetId: Int, lockKey: String): Job = scope.launch {
+    public fun assign(appWidgetId: Int, lockKey: String): Job = launchInCallOrder {
         val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
         writeMutex.withLock {
             updateAppWidgetState(context, glanceId) { preferences ->
@@ -86,6 +94,12 @@ public class LockWidgetController(
             LockWidget().update(context, glanceId)
         }
     }
+
+    /**
+     * 同じスレッドから続けて呼ばれた書き込みを、呼ばれた順に [writeMutex] へ並ばせる。
+     * 通常の launch はディスパッチャ次第で開始順が入れ替わり、古い選択が後から保存されうる。
+     */
+    private fun launchInCallOrder(block: suspend CoroutineScope.() -> Unit): Job = scope.launch(start = CoroutineStart.UNDISPATCHED, block = block)
 
     private fun createPinPreview(content: LockWidgetContent?): RemoteViews {
         val preview = RemoteViews(context.packageName, R.layout.lock_widget_preview)

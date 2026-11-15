@@ -33,6 +33,7 @@ internal class LockWidgetConfigureViewModel(
     init {
         viewModelScope.launch {
             settingIfLoaded.value = widgetController.currentSetting(appWidgetId)
+            widgetController.render(appWidgetId)
         }
     }
 
