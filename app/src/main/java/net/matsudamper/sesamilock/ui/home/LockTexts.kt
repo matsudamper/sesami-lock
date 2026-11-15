@@ -83,6 +83,15 @@ internal object LockTexts {
         }
     }
 
+    fun inProgressShort(phase: CommandPhase.InProgress): String = when (phase) {
+        is CommandPhase.Connecting -> "接続中…"
+
+        is CommandPhase.Sending, is CommandPhase.AwaitingStateVerification -> when (phase.intent) {
+            LockIntent.LOCK -> "施錠操作中"
+            LockIntent.UNLOCK -> "解錠操作中"
+        }
+    }
+
     fun previousState(state: MechanicalState): String = when (state) {
         MechanicalState.LOCKED -> "施錠中"
         MechanicalState.UNLOCKED_VERIFIED, MechanicalState.OUT_OF_LOCK_RANGE -> "解錠中"

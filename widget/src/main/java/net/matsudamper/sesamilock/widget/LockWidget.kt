@@ -40,7 +40,7 @@ import androidx.glance.unit.ColorProvider
 
 internal class LockWidget : GlanceAppWidget() {
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
-    override val sizeMode: SizeMode = SizeMode.Responsive(setOf(CompactSize, WideSize))
+    override val sizeMode: SizeMode = SizeMode.Responsive(setOf(CompactSize, WideSize, WideWithDetailSize))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
@@ -103,10 +103,18 @@ internal fun LockContent(
     icon: LockWidgetIcon,
     onClick: Action,
 ) {
-    if (LocalSize.current.width < WideSize.width) {
+    val size = LocalSize.current
+    if (size.width < WideSize.width) {
         CompactLockContent(style = style, statusLabel = statusLabel, icon = icon, onClick = onClick)
     } else {
-        WideLockContent(style = style, name = name, statusLabel = statusLabel, detail = detail, icon = icon, onClick = onClick)
+        WideLockContent(
+            style = style,
+            name = name,
+            statusLabel = statusLabel,
+            detailIfFits = detail.takeIf { size.height >= WideWithDetailSize.height },
+            icon = icon,
+            onClick = onClick,
+        )
     }
 }
 
@@ -133,7 +141,14 @@ private fun CompactLockContent(style: LockWidgetStyle, statusLabel: String, icon
 }
 
 @Composable
-private fun WideLockContent(style: LockWidgetStyle, name: String, statusLabel: String, detail: String, icon: LockWidgetIcon, onClick: Action) {
+private fun WideLockContent(
+    style: LockWidgetStyle,
+    name: String,
+    statusLabel: String,
+    detailIfFits: String?,
+    icon: LockWidgetIcon,
+    onClick: Action,
+) {
     val tint = icon.tint(style)
     Row(
         modifier = widgetContainerModifier(compact = false, style = style).clickable(onClick),
@@ -157,11 +172,13 @@ private fun WideLockContent(style: LockWidgetStyle, name: String, statusLabel: S
                 maxLines = 1,
                 style = TextStyle(color = tint, fontSize = 18.sp, fontWeight = FontWeight.Bold),
             )
-            Text(
-                text = detail,
-                maxLines = 1,
-                style = TextStyle(color = ColorProvider(style.secondaryTextColorRes), fontSize = 11.sp),
-            )
+            if (detailIfFits != null) {
+                Text(
+                    text = detailIfFits,
+                    maxLines = 1,
+                    style = TextStyle(color = ColorProvider(style.secondaryTextColorRes), fontSize = 11.sp),
+                )
+            }
         }
     }
 }
@@ -174,5 +191,6 @@ private fun widgetContainerModifier(compact: Boolean, style: LockWidgetStyle): G
 
 private val CompactSize = DpSize(40.dp, 40.dp)
 private val WideSize = DpSize(110.dp, 40.dp)
+private val WideWithDetailSize = DpSize(110.dp, 80.dp)
 
 private fun LockWidgetIcon.tint(style: LockWidgetStyle): ColorProvider = ColorProvider(style.tintColorRes(this))
