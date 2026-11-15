@@ -50,7 +50,9 @@ public class LockWidgetController(
         }
     }
 
-    internal fun assign(appWidgetId: Int, lockKey: String): Job = scope.launch {
+    public fun isLockWidget(appWidgetId: Int): Boolean = AppWidgetManager.getInstance(context).getAppWidgetInfo(appWidgetId)?.provider == ComponentName(context, LockWidgetReceiver::class.java)
+
+    public fun assign(appWidgetId: Int, lockKey: String): Job = scope.launch {
         val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
         writeMutex.withLock {
             updateAppWidgetState(context, glanceId) { preferences ->

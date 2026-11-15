@@ -3,6 +3,7 @@ package net.matsudamper.sesamilock
 import android.app.Application
 import android.content.Intent
 import net.matsudamper.sesamilock.ui.overlay.LockOverlayActivity
+import net.matsudamper.sesamilock.ui.widget.LockWidgetConfigureActivity
 import net.matsudamper.sesamilock.widget.LockWidgetController
 import net.matsudamper.sesamilock.widget.LockWidgetHost
 
@@ -21,5 +22,5 @@ internal class SesameLockApplication : Application(), LockWidgetHost {
 
     override fun createLockOverlayIntent(lockKey: String): Intent = LockOverlayActivity.createIntent(this, lockKey)
 
-    override fun createAppLaunchIntent(): Intent = Intent(this, MainActivity::class.java)
+    override fun createLockSelectionIntent(appWidgetId: Int): Intent = LockWidgetConfigureActivity.createIntent(this, appWidgetId)
 }

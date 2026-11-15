@@ -16,6 +16,7 @@ import androidx.glance.LocalSize
 import androidx.glance.action.Action
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
@@ -51,7 +52,8 @@ internal class LockWidget : GlanceAppWidget() {
             val compact = LocalSize.current.width < WideSize.width
             GlanceTheme {
                 if (lockKey == null) {
-                    UnconfiguredContent(compact = compact, onClick = actionStartActivity(host.createAppLaunchIntent()))
+                    val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
+                    UnconfiguredContent(compact = compact, onClick = actionStartActivity(host.createLockSelectionIntent(appWidgetId)))
                 } else {
                     LockContent(
                         compact = compact,
@@ -85,7 +87,7 @@ private fun UnconfiguredContent(compact: Boolean, onClick: Action) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = if (compact) "鍵が未設定" else "アプリの鍵のメニューから追加してください",
+            text = if (compact) "鍵を選択" else "タップして鍵を選択してください",
             style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = if (compact) 11.sp else 13.sp),
         )
     }
