@@ -52,7 +52,7 @@ internal class LockWidgetSync(
                     lock.id.value to LockWidgetContent(
                         name = lock.displayName,
                         observedStatusIfKnown = observedStatus(snapshot),
-                        inProgressLabel = (phase as? CommandPhase.InProgress)?.let(LockTexts::inProgress),
+                        inProgressLabel = (phase as? CommandPhase.InProgress)?.let(LockTexts::inProgressShort),
                     )
                 }
             },
