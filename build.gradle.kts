@@ -13,6 +13,7 @@ plugins {
     alias(libs.plugins.kotlinCompose) apply false
     alias(libs.plugins.ktlint) apply false
     alias(libs.plugins.detekt) apply false
+    alias(libs.plugins.paparazzi) apply false
 }
 
 val vendoredProjectPaths = setOf(":vendor", ":vendor:sesame-sdk")
