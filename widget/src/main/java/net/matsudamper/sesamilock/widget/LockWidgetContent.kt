@@ -27,5 +27,5 @@ public interface LockWidgetHost {
 
     public fun createLockOverlayIntent(lockKey: String): Intent
 
-    public fun createAppLaunchIntent(): Intent
+    public fun createLockSelectionIntent(appWidgetId: Int): Intent
 }

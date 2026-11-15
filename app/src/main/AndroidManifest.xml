@@ -64,5 +64,16 @@
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:theme="@style/Theme.SesamiLock.Overlay" />
+
+        <activity
+            android:name=".ui.widget.LockWidgetConfigureActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.SesamiLock.Overlay">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>
