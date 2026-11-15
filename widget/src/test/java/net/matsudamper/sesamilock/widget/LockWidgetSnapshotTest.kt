@@ -84,7 +84,8 @@ class LockWidgetSnapshotTest {
         val LockStates = listOf(
             LockState("locked", "施錠中", LockWidgetIcon.LOCKED),
             LockState("unlocked", "解錠中", LockWidgetIcon.UNLOCKED),
-            LockState("in_progress", "接続しています…", LockWidgetIcon.MOVING),
+            LockState("connecting", "接続中…", LockWidgetIcon.MOVING),
+            LockState("unlocking", "解錠操作中", LockWidgetIcon.MOVING),
             LockState("unknown", "状態不明", LockWidgetIcon.UNKNOWN),
         )
 
