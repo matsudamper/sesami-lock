@@ -49,14 +49,12 @@ internal class LockWidget : GlanceAppWidget() {
             val lockKey = preferences[LockWidgetKeys.lockKey]
             val host = context.applicationContext as LockWidgetHost
             val inProgressLabel = preferences[LockWidgetKeys.inProgressLabel]
-            val compact = LocalSize.current.width < WideSize.width
             GlanceTheme {
                 if (lockKey == null) {
                     val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
-                    UnconfiguredContent(compact = compact, onClick = actionStartActivity(host.createLockSelectionIntent(appWidgetId)))
+                    UnconfiguredContent(onClick = actionStartActivity(host.createLockSelectionIntent(appWidgetId)))
                 } else {
                     LockContent(
-                        compact = compact,
                         name = preferences[LockWidgetKeys.name].orEmpty(),
                         statusLabel = inProgressLabel ?: preferences[LockWidgetKeys.statusLabel] ?: "状態不明",
                         detail = preferences[LockWidgetKeys.detail].orEmpty(),
@@ -80,7 +78,8 @@ internal class LockWidgetReceiver : GlanceAppWidgetReceiver() {
 }
 
 @Composable
-private fun UnconfiguredContent(compact: Boolean, onClick: Action) {
+internal fun UnconfiguredContent(onClick: Action) {
+    val compact = LocalSize.current.width < WideSize.width
     Column(
         modifier = widgetContainerModifier(compact).clickable(onClick),
         verticalAlignment = Alignment.CenterVertically,
@@ -94,8 +93,8 @@ private fun UnconfiguredContent(compact: Boolean, onClick: Action) {
 }
 
 @Composable
-private fun LockContent(compact: Boolean, name: String, statusLabel: String, detail: String, icon: LockWidgetIcon, onClick: Action) {
-    if (compact) {
+internal fun LockContent(name: String, statusLabel: String, detail: String, icon: LockWidgetIcon, onClick: Action) {
+    if (LocalSize.current.width < WideSize.width) {
         CompactLockContent(statusLabel = statusLabel, icon = icon, onClick = onClick)
     } else {
         WideLockContent(name = name, statusLabel = statusLabel, detail = detail, icon = icon, onClick = onClick)
