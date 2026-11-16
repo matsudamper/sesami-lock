@@ -105,7 +105,6 @@ internal fun UnconfiguredContent(style: LockWidgetStyle, onClick: Action) {
                     availableWidth = contentSize.width,
                     availableHeight = contentSize.height / (lineCount * LineHeightRatio),
                 ),
-                fontWeight = FontWeight.Bold,
             ),
         )
     }
@@ -201,7 +200,6 @@ private fun WideLockContent(
                 style = TextStyle(
                     color = ColorProvider(style.primaryTextColorRes),
                     fontSize = fittingFontSize(name, textWidth, statusSize * NameToStatusRatio),
-                    fontWeight = FontWeight.Bold,
                 ),
             )
             Text(
@@ -216,7 +214,6 @@ private fun WideLockContent(
                     style = TextStyle(
                         color = ColorProvider(style.secondaryTextColorRes),
                         fontSize = fittingFontSize(detailIfFits, textWidth, statusSize * DetailToStatusRatio),
-                        fontWeight = FontWeight.Bold,
                     ),
                 )
             }
