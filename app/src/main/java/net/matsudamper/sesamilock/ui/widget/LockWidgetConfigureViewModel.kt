@@ -14,6 +14,7 @@ import net.matsudamper.sesamilock.sesame.credential.EncryptedLockRepository
 import net.matsudamper.sesamilock.sesame.credential.LockRepositoryState
 import net.matsudamper.sesamilock.ui.home.LockTexts
 import net.matsudamper.sesamilock.widget.LockWidgetController
+import net.matsudamper.sesamilock.widget.LockWidgetIcon
 import net.matsudamper.sesamilock.widget.LockWidgetSetting
 import net.matsudamper.sesamilock.widget.LockWidgetStyle
 
@@ -48,21 +49,33 @@ internal class LockWidgetConfigureViewModel(
             } else if (settingIfLoaded == null) {
                 LockWidgetConfigureUiState.Content.Loading
             } else {
+                val style = settingIfLoaded.style
                 LockWidgetConfigureUiState.Content.Locks(
-                    styleOptions = LockWidgetStyle.entries.map { style ->
+                    stylePreview = LockWidgetConfigureUiState.StylePreview(
+                        backgroundColorRes = style.backgroundColorRes,
+                        outlineColorRes = style.outlineColorRes,
+                        nameColorRes = style.primaryTextColorRes,
+                        statusColorRes = style.tintColorRes(LockWidgetIcon.LOCKED),
+                    ),
+                    colorOptions = LockWidgetStyle.Color.entries.map { color ->
                         LockWidgetConfigureUiState.StyleOption(
-                            label = when (style) {
-                                LockWidgetStyle.WHITE_TRANSLUCENT -> "白（半透明）"
-                                LockWidgetStyle.BLACK_TRANSLUCENT -> "黒（半透明）"
-                                LockWidgetStyle.TRANSPARENT -> "透明"
+                            label = when (color) {
+                                LockWidgetStyle.Color.WHITE -> "白"
+                                LockWidgetStyle.Color.BLACK -> "黒"
                             },
-                            preview = when (style) {
-                                LockWidgetStyle.WHITE_TRANSLUCENT -> LockWidgetConfigureUiState.StylePreview.WHITE_TRANSLUCENT
-                                LockWidgetStyle.BLACK_TRANSLUCENT -> LockWidgetConfigureUiState.StylePreview.BLACK_TRANSLUCENT
-                                LockWidgetStyle.TRANSPARENT -> LockWidgetConfigureUiState.StylePreview.TRANSPARENT
+                            selected = color == style.color,
+                            listener = styleListener(LockWidgetStyle.of(color, style.opacity)),
+                        )
+                    },
+                    opacityOptions = LockWidgetStyle.Opacity.entries.map { opacity ->
+                        LockWidgetConfigureUiState.StyleOption(
+                            label = when (opacity) {
+                                LockWidgetStyle.Opacity.TRANSPARENT -> "透明"
+                                LockWidgetStyle.Opacity.TRANSLUCENT -> "半透明"
+                                LockWidgetStyle.Opacity.OPAQUE -> "透過なし"
                             },
-                            selected = style == settingIfLoaded.style,
-                            listener = styleListener(style),
+                            selected = opacity == style.opacity,
+                            listener = styleListener(LockWidgetStyle.of(style.color, opacity)),
                         )
                     },
                     items = state.locks.map { lock ->

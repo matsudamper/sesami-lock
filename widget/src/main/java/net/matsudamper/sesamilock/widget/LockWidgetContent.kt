@@ -24,41 +24,110 @@ public enum class LockWidgetIcon(@param:DrawableRes internal val drawableRes: In
 }
 
 public enum class LockWidgetStyle(
+    public val color: Color,
+    public val opacity: Opacity,
     @param:DrawableRes internal val backgroundDrawableRes: Int,
-    @param:ColorRes internal val primaryTextColorRes: Int,
-    @param:ColorRes internal val secondaryTextColorRes: Int,
-    @param:ColorRes private val lockedColorRes: Int,
-    @param:ColorRes private val unlockedColorRes: Int,
+    @param:ColorRes public val backgroundColorRes: Int,
+    @param:ColorRes public val outlineColorRes: Int,
+    private val contentColors: LockWidgetContentColors,
 ) {
+    WHITE_TRANSPARENT(
+        color = Color.WHITE,
+        opacity = Opacity.TRANSPARENT,
+        backgroundDrawableRes = R.drawable.lock_widget_background_white_transparent,
+        backgroundColorRes = android.R.color.transparent,
+        outlineColorRes = R.color.lock_widget_white_outline,
+        contentColors = LockWidgetContentColors.ON_DARK,
+    ),
     WHITE_TRANSLUCENT(
-        backgroundDrawableRes = R.drawable.lock_widget_background_white,
-        primaryTextColorRes = R.color.lock_widget_white_primary_text,
-        secondaryTextColorRes = R.color.lock_widget_white_secondary_text,
-        lockedColorRes = R.color.lock_widget_white_locked,
-        unlockedColorRes = R.color.lock_widget_white_unlocked,
+        color = Color.WHITE,
+        opacity = Opacity.TRANSLUCENT,
+        backgroundDrawableRes = R.drawable.lock_widget_background_white_translucent,
+        backgroundColorRes = R.color.lock_widget_white_translucent_background,
+        outlineColorRes = android.R.color.transparent,
+        contentColors = LockWidgetContentColors.ON_LIGHT,
+    ),
+    WHITE_OPAQUE(
+        color = Color.WHITE,
+        opacity = Opacity.OPAQUE,
+        backgroundDrawableRes = R.drawable.lock_widget_background_white_opaque,
+        backgroundColorRes = R.color.lock_widget_white_opaque_background,
+        outlineColorRes = android.R.color.transparent,
+        contentColors = LockWidgetContentColors.ON_LIGHT,
+    ),
+    BLACK_TRANSPARENT(
+        color = Color.BLACK,
+        opacity = Opacity.TRANSPARENT,
+        backgroundDrawableRes = R.drawable.lock_widget_background_black_transparent,
+        backgroundColorRes = android.R.color.transparent,
+        outlineColorRes = R.color.lock_widget_black_outline,
+        contentColors = LockWidgetContentColors.ON_LIGHT,
     ),
     BLACK_TRANSLUCENT(
-        backgroundDrawableRes = R.drawable.lock_widget_background_black,
-        primaryTextColorRes = R.color.lock_widget_black_primary_text,
-        secondaryTextColorRes = R.color.lock_widget_black_secondary_text,
-        lockedColorRes = R.color.lock_widget_black_locked,
-        unlockedColorRes = R.color.lock_widget_black_unlocked,
+        color = Color.BLACK,
+        opacity = Opacity.TRANSLUCENT,
+        backgroundDrawableRes = R.drawable.lock_widget_background_black_translucent,
+        backgroundColorRes = R.color.lock_widget_black_translucent_background,
+        outlineColorRes = android.R.color.transparent,
+        contentColors = LockWidgetContentColors.ON_DARK,
     ),
-    TRANSPARENT(
-        backgroundDrawableRes = R.drawable.lock_widget_background_transparent,
-        primaryTextColorRes = R.color.lock_widget_black_primary_text,
-        secondaryTextColorRes = R.color.lock_widget_black_secondary_text,
-        lockedColorRes = R.color.lock_widget_black_locked,
-        unlockedColorRes = R.color.lock_widget_black_unlocked,
+    BLACK_OPAQUE(
+        color = Color.BLACK,
+        opacity = Opacity.OPAQUE,
+        backgroundDrawableRes = R.drawable.lock_widget_background_black_opaque,
+        backgroundColorRes = R.color.lock_widget_black_opaque_background,
+        outlineColorRes = android.R.color.transparent,
+        contentColors = LockWidgetContentColors.ON_DARK,
     ),
     ;
 
+    @get:ColorRes
+    public val primaryTextColorRes: Int get() = contentColors.primaryTextColorRes
+
+    @get:ColorRes
+    internal val secondaryTextColorRes: Int get() = contentColors.secondaryTextColorRes
+
     @ColorRes
-    internal fun tintColorRes(icon: LockWidgetIcon): Int = when (icon) {
-        LockWidgetIcon.LOCKED -> lockedColorRes
-        LockWidgetIcon.UNLOCKED -> unlockedColorRes
-        LockWidgetIcon.MOVING, LockWidgetIcon.UNKNOWN -> secondaryTextColorRes
+    public fun tintColorRes(icon: LockWidgetIcon): Int = when (icon) {
+        LockWidgetIcon.LOCKED -> contentColors.lockedColorRes
+        LockWidgetIcon.UNLOCKED -> contentColors.unlockedColorRes
+        LockWidgetIcon.MOVING, LockWidgetIcon.UNKNOWN -> contentColors.secondaryTextColorRes
     }
+
+    public enum class Color {
+        WHITE,
+        BLACK,
+    }
+
+    public enum class Opacity {
+        TRANSPARENT,
+        TRANSLUCENT,
+        OPAQUE,
+    }
+
+    public companion object {
+        public fun of(color: Color, opacity: Opacity): LockWidgetStyle = entries.first { it.color == color && it.opacity == opacity }
+    }
+}
+
+internal enum class LockWidgetContentColors(
+    @param:ColorRes val primaryTextColorRes: Int,
+    @param:ColorRes val secondaryTextColorRes: Int,
+    @param:ColorRes val lockedColorRes: Int,
+    @param:ColorRes val unlockedColorRes: Int,
+) {
+    ON_LIGHT(
+        primaryTextColorRes = R.color.lock_widget_on_light_primary_text,
+        secondaryTextColorRes = R.color.lock_widget_on_light_secondary_text,
+        lockedColorRes = R.color.lock_widget_on_light_locked,
+        unlockedColorRes = R.color.lock_widget_on_light_unlocked,
+    ),
+    ON_DARK(
+        primaryTextColorRes = R.color.lock_widget_on_dark_primary_text,
+        secondaryTextColorRes = R.color.lock_widget_on_dark_secondary_text,
+        lockedColorRes = R.color.lock_widget_on_dark_locked,
+        unlockedColorRes = R.color.lock_widget_on_dark_unlocked,
+    ),
 }
 
 public data class LockWidgetSetting(

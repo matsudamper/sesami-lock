@@ -1,6 +1,5 @@
 package net.matsudamper.sesamilock.ui.widget
 
-import androidx.annotation.ColorRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -24,6 +23,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -39,7 +41,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.matsudamper.sesamilock.R
-import net.matsudamper.sesamilock.widget.R as WidgetR
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,9 +88,18 @@ internal fun LockWidgetConfigureScreen(
 
                 is LockWidgetConfigureUiState.Content.Locks -> {
                     SectionTitle("スタイル")
-                    content.styleOptions.forEach { option ->
-                        StyleOption(option)
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .fillMaxWidth()
+                            .background(WallpaperSampleBrush, RoundedCornerShape(16.dp))
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        WidgetSample(content.stylePreview)
                     }
+                    StyleOptions(title = "色", options = content.colorOptions)
+                    StyleOptions(title = "透過", options = content.opacityOptions)
                     SectionTitle("表示する鍵")
                     content.items.forEach { item ->
                         LockItem(item)
@@ -110,30 +120,21 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun StyleOption(option: LockWidgetConfigureUiState.StyleOption, modifier: Modifier = Modifier) {
+private fun StyleOptions(title: String, options: List<LockWidgetConfigureUiState.StyleOption>, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .selectable(
-                selected = option.selected,
-                role = Role.RadioButton,
-                onClick = { option.listener.onClick() },
-            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = option.selected, onClick = null)
-        Column(modifier = Modifier.padding(start = 16.dp).weight(1f)) {
-            Text(option.label, style = MaterialTheme.typography.bodyLarge)
-            Box(
-                modifier = Modifier
-                    .padding(top = 8.dp)
-                    .fillMaxWidth()
-                    .background(WallpaperSampleBrush, RoundedCornerShape(16.dp))
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                WidgetSample(option.preview)
+        Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(56.dp))
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1f)) {
+            options.forEachIndexed { index, option ->
+                SegmentedButton(
+                    selected = option.selected,
+                    onClick = { option.listener.onClick() },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                ) { Text(option.label, maxLines = 1) }
             }
         }
     }
@@ -141,14 +142,13 @@ private fun StyleOption(option: LockWidgetConfigureUiState.StyleOption, modifier
 
 @Composable
 private fun WidgetSample(preview: LockWidgetConfigureUiState.StylePreview, modifier: Modifier = Modifier) {
-    val colors = preview.sampleColors()
     val shape = RoundedCornerShape(16.dp)
-    val statusColor = colorResource(colors.status)
+    val statusColor = colorResource(preview.statusColorRes)
     Row(
         modifier = modifier
             .width(180.dp)
-            .background(colorResource(colors.background), shape)
-            .border(1.dp, colorResource(colors.outline), shape)
+            .background(colorResource(preview.backgroundColorRes), shape)
+            .border(1.dp, colorResource(preview.outlineColorRes), shape)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -160,7 +160,7 @@ private fun WidgetSample(preview: LockWidgetConfigureUiState.StylePreview, modif
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column {
-            Text("SESAME", color = colorResource(colors.name), fontSize = 13.sp, maxLines = 1)
+            Text("SESAME", color = colorResource(preview.nameColorRes), fontSize = 13.sp, maxLines = 1)
             Text("施錠中", color = statusColor, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1)
         }
     }
@@ -189,36 +189,6 @@ private fun LockItem(item: LockWidgetConfigureUiState.LockItem, modifier: Modifi
             )
         }
     }
-}
-
-private class WidgetSampleColors(
-    @param:ColorRes val background: Int,
-    @param:ColorRes val outline: Int,
-    @param:ColorRes val name: Int,
-    @param:ColorRes val status: Int,
-)
-
-private fun LockWidgetConfigureUiState.StylePreview.sampleColors(): WidgetSampleColors = when (this) {
-    LockWidgetConfigureUiState.StylePreview.WHITE_TRANSLUCENT -> WidgetSampleColors(
-        background = WidgetR.color.lock_widget_white_background,
-        outline = android.R.color.transparent,
-        name = WidgetR.color.lock_widget_white_primary_text,
-        status = WidgetR.color.lock_widget_white_locked,
-    )
-
-    LockWidgetConfigureUiState.StylePreview.BLACK_TRANSLUCENT -> WidgetSampleColors(
-        background = WidgetR.color.lock_widget_black_background,
-        outline = android.R.color.transparent,
-        name = WidgetR.color.lock_widget_black_primary_text,
-        status = WidgetR.color.lock_widget_black_locked,
-    )
-
-    LockWidgetConfigureUiState.StylePreview.TRANSPARENT -> WidgetSampleColors(
-        background = android.R.color.transparent,
-        outline = WidgetR.color.lock_widget_transparent_outline,
-        name = WidgetR.color.lock_widget_black_primary_text,
-        status = WidgetR.color.lock_widget_black_locked,
-    )
 }
 
 private val WallpaperSampleBrush = Brush.linearGradient(listOf(Color(0xFF4A5A78), Color(0xFFA9826A)))

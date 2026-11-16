@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="lock_widget_white_background">#B3FFFFFF</color>
-    <color name="lock_widget_white_primary_text">#FF1C1B1F</color>
-    <color name="lock_widget_white_secondary_text">#FF49454F</color>
-    <color name="lock_widget_white_locked">#FFB45309</color>
-    <color name="lock_widget_white_unlocked">#FF2E7D32</color>
-    <color name="lock_widget_black_background">#B3000000</color>
-    <color name="lock_widget_black_primary_text">#FFE6E1E5</color>
-    <color name="lock_widget_black_secondary_text">#FFCAC4D0</color>
-    <color name="lock_widget_black_locked">#FFF5B66B</color>
-    <color name="lock_widget_black_unlocked">#FF8BD18F</color>
-    <color name="lock_widget_transparent_outline">#99FFFFFF</color>
+    <color name="lock_widget_white_outline">#99FFFFFF</color>
+    <color name="lock_widget_white_translucent_background">#B3FFFFFF</color>
+    <color name="lock_widget_white_opaque_background">#FFFFFFFF</color>
+    <color name="lock_widget_black_outline">#99000000</color>
+    <color name="lock_widget_black_translucent_background">#B3000000</color>
+    <color name="lock_widget_black_opaque_background">#FF000000</color>
+    <color name="lock_widget_on_light_primary_text">#FF1C1B1F</color>
+    <color name="lock_widget_on_light_secondary_text">#FF49454F</color>
+    <color name="lock_widget_on_light_locked">#FFB45309</color>
+    <color name="lock_widget_on_light_unlocked">#FF2E7D32</color>
+    <color name="lock_widget_on_dark_primary_text">#FFE6E1E5</color>
+    <color name="lock_widget_on_dark_secondary_text">#FFCAC4D0</color>
+    <color name="lock_widget_on_dark_locked">#FFF5B66B</color>
+    <color name="lock_widget_on_dark_unlocked">#FF8BD18F</color>
 </resources>
