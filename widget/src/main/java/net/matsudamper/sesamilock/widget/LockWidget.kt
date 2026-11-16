@@ -186,7 +186,7 @@ private fun WideLockContent(
 private fun widgetContainerModifier(compact: Boolean, style: LockWidgetStyle): GlanceModifier = GlanceModifier
     .fillMaxSize()
     .background(ImageProvider(style.backgroundDrawableRes))
-    .cornerRadius(16.dp)
+    .cornerRadius(R.dimen.lock_widget_corner_radius)
     .padding(horizontal = if (compact) 4.dp else 16.dp, vertical = if (compact) 4.dp else 8.dp)
 
 private val CompactSize = DpSize(40.dp, 40.dp)
