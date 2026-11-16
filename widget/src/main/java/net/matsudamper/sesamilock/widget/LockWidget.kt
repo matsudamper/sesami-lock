@@ -2,7 +2,9 @@ package net.matsudamper.sesamilock.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
@@ -89,7 +91,11 @@ internal fun UnconfiguredContent(style: LockWidgetStyle, onClick: Action) {
     ) {
         Text(
             text = if (compact) "鍵を選択" else "タップして鍵を選択してください",
-            style = TextStyle(color = ColorProvider(style.primaryTextColorRes), fontSize = if (compact) 11.sp else 13.sp),
+            style = TextStyle(
+                color = ColorProvider(style.primaryTextColorRes),
+                fontSize = if (compact) 14.sp else 16.sp,
+                fontWeight = FontWeight.Bold,
+            ),
         )
     }
 }
@@ -130,12 +136,16 @@ private fun CompactLockContent(style: LockWidgetStyle, statusLabel: String, icon
             provider = ImageProvider(icon.drawableRes),
             contentDescription = null,
             colorFilter = ColorFilter.tint(tint),
-            modifier = GlanceModifier.size(28.dp),
+            modifier = GlanceModifier.size(34.dp),
         )
         Text(
             text = statusLabel,
             maxLines = 1,
-            style = TextStyle(color = tint, fontSize = 12.sp, fontWeight = FontWeight.Bold),
+            style = TextStyle(
+                color = tint,
+                fontSize = fittingFontSize(statusLabel, LocalSize.current.width - CompactHorizontalPadding * 2, max = 16.sp),
+                fontWeight = FontWeight.Bold,
+            ),
         )
     }
 }
@@ -150,6 +160,7 @@ private fun WideLockContent(
     onClick: Action,
 ) {
     val tint = icon.tint(style)
+    val textWidth = LocalSize.current.width - WideHorizontalPadding * 2 - WideIconSize - WideIconSpacing
     Row(
         modifier = widgetContainerModifier(compact = false, style = style).clickable(onClick),
         verticalAlignment = Alignment.CenterVertically,
@@ -158,25 +169,29 @@ private fun WideLockContent(
             provider = ImageProvider(icon.drawableRes),
             contentDescription = null,
             colorFilter = ColorFilter.tint(tint),
-            modifier = GlanceModifier.size(32.dp),
+            modifier = GlanceModifier.size(WideIconSize),
         )
-        Spacer(modifier = GlanceModifier.width(12.dp))
+        Spacer(modifier = GlanceModifier.width(WideIconSpacing))
         Column {
             Text(
                 text = name,
                 maxLines = 1,
-                style = TextStyle(color = ColorProvider(style.primaryTextColorRes), fontSize = 13.sp),
+                style = TextStyle(
+                    color = ColorProvider(style.primaryTextColorRes),
+                    fontSize = fittingFontSize(name, textWidth, max = 15.sp),
+                    fontWeight = FontWeight.Bold,
+                ),
             )
             Text(
                 text = statusLabel,
                 maxLines = 1,
-                style = TextStyle(color = tint, fontSize = 18.sp, fontWeight = FontWeight.Bold),
+                style = TextStyle(color = tint, fontSize = fittingFontSize(statusLabel, textWidth, max = 22.sp), fontWeight = FontWeight.Bold),
             )
             if (detailIfFits != null) {
                 Text(
                     text = detailIfFits,
                     maxLines = 1,
-                    style = TextStyle(color = ColorProvider(style.secondaryTextColorRes), fontSize = 11.sp),
+                    style = TextStyle(color = ColorProvider(style.secondaryTextColorRes), fontSize = 13.sp, fontWeight = FontWeight.Bold),
                 )
             }
         }
@@ -187,10 +202,24 @@ private fun widgetContainerModifier(compact: Boolean, style: LockWidgetStyle): G
     .fillMaxSize()
     .background(ImageProvider(style.backgroundDrawableRes))
     .cornerRadius(R.dimen.lock_widget_corner_radius)
-    .padding(horizontal = if (compact) 4.dp else 16.dp, vertical = if (compact) 4.dp else 8.dp)
+    .padding(horizontal = if (compact) CompactHorizontalPadding else WideHorizontalPadding, vertical = 4.dp)
 
 private val CompactSize = DpSize(40.dp, 40.dp)
 private val WideSize = DpSize(110.dp, 40.dp)
 private val WideWithDetailSize = DpSize(110.dp, 80.dp)
+private val CompactHorizontalPadding = 4.dp
+private val WideHorizontalPadding = 12.dp
+private val WideIconSize = 40.dp
+private val WideIconSpacing = 8.dp
+private val MinFontSize = 10.sp
+
+/**
+ * Glance には文字の自動縮小が無いため、全角1文字を 1em 幅とみなして [availableWidth] に収まる大きさを求める。
+ * 半角が混ざると実際より狭く見積もるので、はみ出すことはない。
+ */
+private fun fittingFontSize(text: String, availableWidth: Dp, max: TextUnit): TextUnit {
+    val fitting = availableWidth.value / text.length.coerceAtLeast(1)
+    return fitting.coerceIn(MinFontSize.value, max.value).sp
+}
 
 private fun LockWidgetIcon.tint(style: LockWidgetStyle): ColorProvider = ColorProvider(style.tintColorRes(this))
