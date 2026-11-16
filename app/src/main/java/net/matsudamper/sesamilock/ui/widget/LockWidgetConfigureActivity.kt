@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -16,6 +17,7 @@ import net.matsudamper.sesamilock.ui.theme.SesameTheme
 
 internal class LockWidgetConfigureActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val graph = (application as SesameLockApplication).graph
         val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
@@ -37,7 +39,7 @@ internal class LockWidgetConfigureActivity : ComponentActivity() {
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
                 LockWidgetConfigureScreen(
                     uiState = uiState,
-                    onCompleted = {
+                    onDoneClick = {
                         setResult(RESULT_OK, result)
                         finish()
                     },
@@ -45,7 +47,6 @@ internal class LockWidgetConfigureActivity : ComponentActivity() {
                         startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                         finish()
                     },
-                    onDismiss = ::finish,
                 )
             }
         }

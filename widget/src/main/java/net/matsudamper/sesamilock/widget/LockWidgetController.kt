@@ -11,8 +11,11 @@ import android.widget.RemoteViews
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.state.PreferencesGlanceStateDefinition
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -52,17 +55,51 @@ public class LockWidgetController(
 
     public fun isLockWidget(appWidgetId: Int): Boolean = AppWidgetManager.getInstance(context).getAppWidgetInfo(appWidgetId)?.provider == ComponentName(context, LockWidgetReceiver::class.java)
 
-    public fun assign(appWidgetId: Int, lockKey: String): Job = scope.launch {
+    public suspend fun currentSetting(appWidgetId: Int): LockWidgetSetting {
+        val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
+        val preferences = getAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId)
+        return LockWidgetSetting(
+            lockKeyIfAssigned = preferences[LockWidgetKeys.lockKey],
+            style = preferences.lockWidgetStyle(),
+        )
+    }
+
+    public fun render(appWidgetId: Int): Job = launchInCallOrder {
+        val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
+        writeMutex.withLock {
+            LockWidget().update(context, glanceId)
+        }
+    }
+
+    public fun applyStyle(appWidgetId: Int, style: LockWidgetStyle): Job = launchInCallOrder {
         val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
         writeMutex.withLock {
             updateAppWidgetState(context, glanceId) { preferences ->
+                preferences[LockWidgetKeys.style] = style.name
+            }
+            LockWidget().update(context, glanceId)
+        }
+    }
+
+    public fun assign(appWidgetId: Int, lockKey: String): Job = launchInCallOrder {
+        val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
+        writeMutex.withLock {
+            updateAppWidgetState(context, glanceId) { preferences ->
+                val style = preferences.lockWidgetStyle()
                 preferences.clear()
                 preferences[LockWidgetKeys.lockKey] = lockKey
+                preferences[LockWidgetKeys.style] = style.name
                 latestContents?.get(lockKey)?.let { preferences.write(it) }
             }
             LockWidget().update(context, glanceId)
         }
     }
+
+    /**
+     * 同じスレッドから続けて呼ばれた書き込みを、呼ばれた順に [writeMutex] へ並ばせる。
+     * 通常の launch はディスパッチャ次第で開始順が入れ替わり、古い選択が後から保存されうる。
+     */
+    private fun launchInCallOrder(block: suspend CoroutineScope.() -> Unit): Job = scope.launch(start = CoroutineStart.UNDISPATCHED, block = block)
 
     private fun createPinPreview(content: LockWidgetContent?): RemoteViews {
         val preview = RemoteViews(context.packageName, R.layout.lock_widget_preview)
@@ -72,13 +109,7 @@ public class LockWidgetController(
         } else {
             content.observedStatusIfKnown?.icon ?: LockWidgetIcon.UNKNOWN
         }
-        val tint = context.getColor(
-            when (icon) {
-                LockWidgetIcon.LOCKED -> R.color.lock_widget_locked
-                LockWidgetIcon.UNLOCKED -> R.color.lock_widget_unlocked
-                LockWidgetIcon.MOVING, LockWidgetIcon.UNKNOWN -> R.color.lock_widget_on_background
-            },
-        )
+        val tint = context.getColor(PinPreviewStyle.tintColorRes(icon))
         preview.setTextViewText(R.id.lock_widget_preview_name, content.name)
         preview.setTextViewText(
             R.id.lock_widget_preview_status,
@@ -119,6 +150,8 @@ public class LockWidgetController(
         this[LockWidgetKeys.detail] = status.detail
     }
 }
+
+private val PinPreviewStyle = LockWidgetStyle.WHITE_TRANSLUCENT
 
 internal class LockWidgetPinnedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
