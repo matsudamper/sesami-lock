@@ -13,6 +13,7 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
+import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.Action
 import androidx.glance.action.clickable
@@ -42,7 +43,7 @@ import androidx.glance.unit.ColorProvider
 
 internal class LockWidget : GlanceAppWidget() {
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
-    override val sizeMode: SizeMode = SizeMode.Responsive(setOf(CompactSize, WideSize, WideWithDetailSize))
+    override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
@@ -83,17 +84,27 @@ internal class LockWidgetReceiver : GlanceAppWidgetReceiver() {
 
 @Composable
 internal fun UnconfiguredContent(style: LockWidgetStyle, onClick: Action) {
-    val compact = LocalSize.current.width < WideSize.width
+    val size = LocalSize.current
+    val compact = size.width < WideSize.width
+    val padding = if (compact) CompactPadding else WidePadding
+    val contentSize = size.contentSize(padding)
+    val text = if (compact) "鍵を選択" else "タップして鍵を選択してください"
+    val lineCount = if (compact) 1 else 2
     Column(
-        modifier = widgetContainerModifier(compact, style).clickable(onClick),
+        modifier = widgetContainerModifier(padding, style).clickable(onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = if (compact) "鍵を選択" else "タップして鍵を選択してください",
+            text = text,
+            maxLines = lineCount,
             style = TextStyle(
                 color = ColorProvider(style.primaryTextColorRes),
-                fontSize = if (compact) 14.sp else 16.sp,
+                fontSize = fittingFontSize(
+                    text = text.take((text.length + lineCount - 1) / lineCount),
+                    availableWidth = contentSize.width,
+                    availableHeight = contentSize.height / (lineCount * LineHeightRatio),
+                ),
                 fontWeight = FontWeight.Bold,
             ),
         )
@@ -127,8 +138,15 @@ internal fun LockContent(
 @Composable
 private fun CompactLockContent(style: LockWidgetStyle, statusLabel: String, icon: LockWidgetIcon, onClick: Action) {
     val tint = icon.tint(style)
+    val contentSize = LocalSize.current.contentSize(CompactPadding)
+    val iconSize = (contentSize.height * CompactIconHeightRatio).coerceIn(MinIconSize, MaxIconSize)
+    val statusSize = fittingFontSize(
+        text = statusLabel,
+        availableWidth = contentSize.width,
+        availableHeight = (contentSize.height - iconSize) / LineHeightRatio,
+    )
     Column(
-        modifier = widgetContainerModifier(compact = true, style = style).clickable(onClick),
+        modifier = widgetContainerModifier(CompactPadding, style).clickable(onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -136,16 +154,12 @@ private fun CompactLockContent(style: LockWidgetStyle, statusLabel: String, icon
             provider = ImageProvider(icon.drawableRes),
             contentDescription = null,
             colorFilter = ColorFilter.tint(tint),
-            modifier = GlanceModifier.size(34.dp),
+            modifier = GlanceModifier.size(iconSize),
         )
         Text(
             text = statusLabel,
             maxLines = 1,
-            style = TextStyle(
-                color = tint,
-                fontSize = fittingFontSize(statusLabel, LocalSize.current.width - CompactHorizontalPadding * 2, max = 16.sp),
-                fontWeight = FontWeight.Bold,
-            ),
+            style = TextStyle(color = tint, fontSize = statusSize, fontWeight = FontWeight.Bold),
         )
     }
 }
@@ -160,16 +174,24 @@ private fun WideLockContent(
     onClick: Action,
 ) {
     val tint = icon.tint(style)
-    val textWidth = LocalSize.current.width - WideHorizontalPadding * 2 - WideIconSize - WideIconSpacing
+    val contentSize = LocalSize.current.contentSize(WidePadding)
+    val iconSize = (contentSize.height * WideIconHeightRatio).coerceIn(MinIconSize, MaxIconSize)
+    val textWidth = contentSize.width - iconSize - WideIconSpacing
+    val lineRatioSum = NameToStatusRatio + 1f + if (detailIfFits == null) 0f else DetailToStatusRatio
+    val statusSize = fittingFontSize(
+        text = statusLabel,
+        availableWidth = textWidth,
+        availableHeight = contentSize.height / (lineRatioSum * LineHeightRatio),
+    )
     Row(
-        modifier = widgetContainerModifier(compact = false, style = style).clickable(onClick),
+        modifier = widgetContainerModifier(WidePadding, style).clickable(onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Image(
             provider = ImageProvider(icon.drawableRes),
             contentDescription = null,
             colorFilter = ColorFilter.tint(tint),
-            modifier = GlanceModifier.size(WideIconSize),
+            modifier = GlanceModifier.size(iconSize),
         )
         Spacer(modifier = GlanceModifier.width(WideIconSpacing))
         Column {
@@ -178,48 +200,73 @@ private fun WideLockContent(
                 maxLines = 1,
                 style = TextStyle(
                     color = ColorProvider(style.primaryTextColorRes),
-                    fontSize = fittingFontSize(name, textWidth, max = 15.sp),
+                    fontSize = fittingFontSize(name, textWidth, statusSize * NameToStatusRatio),
                     fontWeight = FontWeight.Bold,
                 ),
             )
             Text(
                 text = statusLabel,
                 maxLines = 1,
-                style = TextStyle(color = tint, fontSize = fittingFontSize(statusLabel, textWidth, max = 22.sp), fontWeight = FontWeight.Bold),
+                style = TextStyle(color = tint, fontSize = statusSize, fontWeight = FontWeight.Bold),
             )
             if (detailIfFits != null) {
                 Text(
                     text = detailIfFits,
                     maxLines = 1,
-                    style = TextStyle(color = ColorProvider(style.secondaryTextColorRes), fontSize = 13.sp, fontWeight = FontWeight.Bold),
+                    style = TextStyle(
+                        color = ColorProvider(style.secondaryTextColorRes),
+                        fontSize = fittingFontSize(detailIfFits, textWidth, statusSize * DetailToStatusRatio),
+                        fontWeight = FontWeight.Bold,
+                    ),
                 )
             }
         }
     }
 }
 
-private fun widgetContainerModifier(compact: Boolean, style: LockWidgetStyle): GlanceModifier = GlanceModifier
+private fun widgetContainerModifier(padding: PaddingSize, style: LockWidgetStyle): GlanceModifier = GlanceModifier
     .fillMaxSize()
     .background(ImageProvider(style.backgroundDrawableRes))
     .cornerRadius(R.dimen.lock_widget_corner_radius)
-    .padding(horizontal = if (compact) CompactHorizontalPadding else WideHorizontalPadding, vertical = 4.dp)
+    .padding(horizontal = padding.horizontal, vertical = padding.vertical)
 
-private val CompactSize = DpSize(40.dp, 40.dp)
-private val WideSize = DpSize(110.dp, 40.dp)
-private val WideWithDetailSize = DpSize(110.dp, 80.dp)
-private val CompactHorizontalPadding = 4.dp
-private val WideHorizontalPadding = 12.dp
-private val WideIconSize = 40.dp
-private val WideIconSpacing = 8.dp
-private val MinFontSize = 10.sp
+private fun DpSize.contentSize(padding: PaddingSize): DpSize = DpSize(width - padding.horizontal * 2, height - padding.vertical * 2)
+
+private class PaddingSize(val horizontal: Dp, val vertical: Dp)
 
 /**
- * Glance には文字の自動縮小が無いため、全角1文字を 1em 幅とみなして [availableWidth] に収まる大きさを求める。
+ * Glance には文字の自動縮小が無いため、全角1文字を 1em 幅とみなして幅と高さの両方に収まる大きさを求める。
  * 半角が混ざると実際より狭く見積もるので、はみ出すことはない。
+ * sp は端末の文字サイズ設定で拡大されるため、その倍率で割って dp に揃える。
  */
-private fun fittingFontSize(text: String, availableWidth: Dp, max: TextUnit): TextUnit {
-    val fitting = availableWidth.value / text.length.coerceAtLeast(1)
-    return fitting.coerceIn(MinFontSize.value, max.value).sp
+@Composable
+private fun fittingFontSize(text: String, availableWidth: Dp, availableHeight: Dp): TextUnit {
+    val fontScale = LocalContext.current.resources.configuration.fontScale
+    val byWidth = availableWidth.value / text.length.coerceAtLeast(1)
+    val fitting = minOf(byWidth, availableHeight.value, MaxFontSize.value) / fontScale
+    return fitting.coerceAtLeast(MinFontSize.value).sp
 }
+
+@Composable
+private fun fittingFontSize(text: String, availableWidth: Dp, max: TextUnit): TextUnit {
+    val fontScale = LocalContext.current.resources.configuration.fontScale
+    val byWidth = availableWidth.value / text.length.coerceAtLeast(1) / fontScale
+    return byWidth.coerceIn(MinFontSize.value, max.value.coerceAtLeast(MinFontSize.value)).sp
+}
+
+private val WideSize = DpSize(110.dp, 40.dp)
+private val WideWithDetailSize = DpSize(110.dp, 80.dp)
+private val CompactPadding = PaddingSize(horizontal = 4.dp, vertical = 4.dp)
+private val WidePadding = PaddingSize(horizontal = 10.dp, vertical = 4.dp)
+private val WideIconSpacing = 8.dp
+private val MinIconSize = 20.dp
+private val MaxIconSize = 64.dp
+private val MinFontSize = 10.sp
+private val MaxFontSize = 40.sp
+private const val CompactIconHeightRatio = 0.55f
+private const val WideIconHeightRatio = 0.8f
+private const val LineHeightRatio = 1.35f
+private const val NameToStatusRatio = 0.55f
+private const val DetailToStatusRatio = 0.5f
 
 private fun LockWidgetIcon.tint(style: LockWidgetStyle): ColorProvider = ColorProvider(style.tintColorRes(this))

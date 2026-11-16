@@ -52,7 +52,7 @@ class LockWidgetSnapshotTest {
     private fun snapshotCases(): List<SnapshotCase> = buildList {
         LockWidgetStyle.entries.forEach { style ->
             val styleName = style.name.lowercase()
-            listOf("compact" to CompactSize, "wide" to WideSize, "wide_tall" to WideTallSize).forEach { (sizeName, size) ->
+            listOf("compact" to CompactSize, "wide" to WideSize, "wide_tall" to WideTallSize, "wide_large" to WideLargeSize).forEach { (sizeName, size) ->
                 LockStates.forEach { state ->
                     add(
                         SnapshotCase("${sizeName}_${state.name}_$styleName", size) {
@@ -85,6 +85,7 @@ class LockWidgetSnapshotTest {
         val CompactSize = DpSize(70.dp, 70.dp)
         val WideSize = DpSize(180.dp, 56.dp)
         val WideTallSize = DpSize(180.dp, 90.dp)
+        val WideLargeSize = DpSize(260.dp, 120.dp)
         val WallpaperSampleColor = Color.rgb(0x6B, 0x72, 0x80)
         val LockStates = listOf(
             LockState("locked", "施錠中", LockWidgetIcon.LOCKED),
